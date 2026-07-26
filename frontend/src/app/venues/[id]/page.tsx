@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, Star, Clock, ArrowLeft, Calendar, Check, Loader2, Shield, Zap, Ticket, ShieldCheck } from 'lucide-react';
-import { Venue } from '@/shared/types';
+import { Venue, ContactPerson } from '@/shared/types';
 import { formatCurrency, getSportEmoji, getSportColor, getSkillBadgeColor, cn, getSportImage } from '@/shared/helpers/utils';
 import { generateTimeSlots, isSlotInPast } from '@/shared/helpers/pricing';
 import { useAuth } from '@/contexts/AuthProvider';
-import { createBooking, getVenueBookings, checkSlotAvailability, getVenueById, getInfrastructureById } from '@/backend/firebase/firestore';
+import { createBooking, getVenueBookings, checkSlotAvailability, getVenueById, getInfrastructureById, getUserProfile } from '@/backend/firebase/firestore';
 
 const MIN_DATE = new Date().toISOString().split('T')[0];
 const MAX_DATE = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -21,6 +21,8 @@ export default function VenueDetailPage() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
   const [isInfra, setIsInfra] = useState(searchParams.get('infra') === 'true');
+  const [ownerContact, setOwnerContact] = useState<ContactPerson | null>(null);
+  const [staffContact, setStaffContact] = useState<ContactPerson | null>(null);
 
   const [selectedDate, setSelectedDate] = useState(searchParams.get('date') || MIN_DATE);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(searchParams.get('slot') || null);
@@ -67,6 +69,26 @@ export default function VenueDetailPage() {
             if (active) {
               if (dbVenue) {
                 setVenue(dbVenue);
+                if (dbVenue.ownerId && dbVenue.ownerId !== 'system') {
+                  const ownerProfile = await getUserProfile(dbVenue.ownerId);
+                  if (ownerProfile) {
+                    if (ownerProfile.phoneNumber) {
+                      setOwnerContact({
+                        id: ownerProfile.uid,
+                        name: ownerProfile.displayName || 'Venue Owner',
+                        phone: ownerProfile.phoneNumber,
+                        email: ownerProfile.email,
+                        socials: {}
+                      });
+                    }
+                    if (dbVenue.assignedContactId && ownerProfile.contactPersons) {
+                      const contact = ownerProfile.contactPersons.find(c => c.id === dbVenue.assignedContactId);
+                      if (contact && contact.isActive !== false) {
+                        setStaffContact(contact);
+                      }
+                    }
+                  }
+                }
               } else {
                 const dbInfra = await getInfrastructureById(id);
                 if (dbInfra) {
@@ -320,6 +342,62 @@ export default function VenueDetailPage() {
                 </span>
               </div>
             </div>
+
+            {/* Contacts */}
+            {(ownerContact || staffContact) && (
+              <div className="glass rounded-lg p-6 border-2 border-black">
+                <h2 className="font-display font-bold text-slate-200 text-lg mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-cyan-400" /> Venue Contacts
+                </h2>
+                
+                <div className="space-y-4">
+                  {/* Owner Contact */}
+                  {ownerContact && (
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/50 p-4 rounded-md border border-black/40">
+                      <div>
+                        <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Venue Owner</div>
+                        <div className="font-bold text-slate-200 text-lg mb-1">{ownerContact.name}</div>
+                        <div className="text-sm text-slate-400 mb-2">{ownerContact.email}</div>
+                        <div className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30">
+                          📞 {ownerContact.phone}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Staff Contact */}
+                  {staffContact && (
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/50 p-4 rounded-md border border-black/40">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Venue Manager / Staff</div>
+                        <div className="font-bold text-slate-200 text-lg mb-1">{staffContact.name}</div>
+                        <div className="text-sm text-slate-400 mb-2">{staffContact.email}</div>
+                        <div className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30">
+                          📞 {staffContact.phone}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {staffContact.socials?.whatsapp && (
+                          <a href={`https://wa.me/${staffContact.socials.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-emerald-500/40 transition-colors">
+                            WhatsApp
+                          </a>
+                        )}
+                        {staffContact.socials?.instagram && (
+                          <a href={staffContact.socials.instagram.startsWith('http') ? staffContact.socials.instagram : `https://instagram.com/${staffContact.socials.instagram.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="bg-purple-500/20 text-purple-400 border border-purple-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-purple-500/40 transition-colors">
+                            Instagram
+                          </a>
+                        )}
+                        {staffContact.socials?.facebook && (
+                          <a href={staffContact.socials.facebook} target="_blank" rel="noopener noreferrer" className="bg-blue-500/20 text-blue-400 border border-blue-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-500/40 transition-colors">
+                            Facebook
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Amenities */}
             <div className="glass rounded-lg p-6">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Plus, Calendar, BarChart3, Clock, Loader2, Trash2, Pencil, Eye, EyeOff, Ticket, Users, TrendingUp } from 'lucide-react';
+import { Building2, Plus, Calendar, BarChart3, Clock, Loader2, Trash2, Pencil, Eye, EyeOff, Ticket, Users, TrendingUp, User as UserIcon, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
 import {
   subscribeOwnerVenues,
@@ -17,11 +17,11 @@ import {
   submitOwnershipRequest,
   getInfrastructureByVenueCode,
 } from '@/backend/firebase/firestore';
-import { Venue, Booking, OwnershipRequest } from '@/shared/types';
+import { Venue, Booking, OwnershipRequest, ContactPerson } from '@/shared/types';
 import { formatCurrency, formatDate, getSportEmoji, getSkillBadgeColor, cn, getSportImage } from '@/shared/helpers/utils';
 import { VenueForm, VenueFormData } from '@/components/owner/VenueForm';
 
-type OwnerTab = 'overview' | 'venues' | 'verify' | 'bookings' | 'analytics';
+type OwnerTab = 'overview' | 'venues' | 'verify' | 'bookings' | 'analytics' | 'profile' | 'contacts';
 
 const getProgressWidthClass = (pct: number) => {
   const rounded = Math.round(pct / 10) * 10;
@@ -70,12 +70,89 @@ export default function OwnerDashboardPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bookingSubTab, setBookingSubTab] = useState<'requests' | 'confirmed' | 'tickets'>('requests');
 
+  // Profile states
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profilePhotoBase64, setProfilePhotoBase64] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  
+  // Contacts states
+  const contactPersons = profile?.contactPersons || [];
+  const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  
+  const isProfileIncomplete = !profile?.phoneNumber || !profile?.photoURL;
+
   useEffect(() => {
     if (profile) {
       setOwnerUpi(profile.upiId || '');
       setOwnerQrBase64(profile.qrCodeUrl || '');
+      setProfilePhone(profile.phoneNumber || '');
+      setProfilePhotoBase64(profile.photoURL || '');
     }
   }, [profile]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setProfileSaving(true);
+    try {
+      await updateUserProfile(user.uid, {
+        phoneNumber: profilePhone,
+        photoURL: profilePhotoBase64
+      });
+      showSuccess('👤 Profile details saved!');
+    } catch (err) {
+      console.error('Error saving profile details:', err);
+      alert('Unable to save profile details. Please try again.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSaveContact = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user || !profile) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const newContact: ContactPerson = {
+      id: editingContact ? editingContact.id : crypto.randomUUID(),
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string,
+      email: formData.get('email') as string,
+      socials: {
+        instagram: formData.get('instagram') as string,
+        facebook: formData.get('facebook') as string,
+        whatsapp: formData.get('whatsapp') as string,
+      }
+    };
+
+    try {
+      const updatedContacts = editingContact
+        ? contactPersons.map(c => c.id === editingContact.id ? newContact : c)
+        : [...contactPersons, newContact];
+
+      await updateUserProfile(user.uid, { contactPersons: updatedContacts });
+      showSuccess(`👤 Contact ${editingContact ? 'updated' : 'added'}!`);
+      setEditingContact(null);
+      setIsAddingContact(false);
+    } catch (err) {
+      console.error('Error saving contact:', err);
+      alert('Unable to save contact details.');
+    }
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    if (!user || !profile) return;
+    if (!confirm('Delete this contact person?')) return;
+    
+    try {
+      const updatedContacts = contactPersons.filter(c => c.id !== id);
+      await updateUserProfile(user.uid, { contactPersons: updatedContacts });
+      showSuccess('🗑️ Contact deleted.');
+    } catch (err) {
+      console.error('Error deleting contact:', err);
+      alert('Unable to delete contact.');
+    }
+  };
 
   const handleSavePayout = async () => {
     if (!user) return;
@@ -335,6 +412,8 @@ export default function OwnerDashboardPage() {
     { id: 'verify', label: 'Add / Verify Venue', icon: <Plus className="w-4 h-4" /> },
     { id: 'bookings', label: 'Bookings', icon: <Calendar className="w-4 h-4" /> },
     { id: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
+    { id: 'profile', label: 'Profile', icon: <UserIcon className="w-4 h-4" /> },
+    { id: 'contacts', label: 'Staff', icon: <Users className="w-4 h-4" /> },
   ];
 
   return (
@@ -361,6 +440,27 @@ export default function OwnerDashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Incomplete Profile Alert */}
+        {isProfileIncomplete && (
+          <div className="mb-6 bg-rose-950/40 border-2 border-rose-500/50 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[4px_4px_0px_#000]">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
+              <div>
+                <h3 className="text-rose-300 font-bold text-sm">Action Required: Complete Your Profile</h3>
+                <p className="text-rose-400/80 text-xs mt-1">
+                  Please add your mobile number and profile image to ensure players can contact you and to improve trust.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setTab('profile')}
+              className="whitespace-nowrap bg-rose-500 hover:bg-rose-400 text-black font-bold text-xs px-4 py-2 rounded border-2 border-black transition-all shadow-[2px_2px_0px_#000] hover:-translate-y-0.5"
+            >
+              Complete Profile Now
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-3 mb-6 overflow-x-auto scrollbar-hide p-1">
@@ -581,6 +681,7 @@ export default function OwnerDashboardPage() {
               initialData={editingVenue}
               onSubmit={handleEditVenue as Parameters<typeof VenueForm>[0]['onSubmit']}
               onCancel={() => setEditingVenue(null)}
+              contactPersons={contactPersons}
             />
           </div>
         )}
@@ -596,6 +697,7 @@ export default function OwnerDashboardPage() {
                 mode="add"
                 onSubmit={handleAddVenue as Parameters<typeof VenueForm>[0]['onSubmit']}
                 onCancel={() => setTab('venues')}
+                contactPersons={contactPersons}
               />
             </div>
 
@@ -1038,6 +1140,246 @@ export default function OwnerDashboardPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── TAB: PROFILE ───────────────────────────────────── */}
+        {tab === 'profile' && (
+          <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000] max-w-2xl mx-auto">
+            <h2 className="font-display font-bold text-slate-200 text-xl mb-6 flex items-center gap-2">
+              <UserIcon className="w-6 h-6 text-cyan-400" /> Owner Profile Settings
+            </h2>
+            <div className="space-y-6">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                  Mobile Number *
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. +91 9876543210"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="w-full bg-slate-900 border-2 border-black rounded-md px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Players will use this to contact you for bookings.</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                  Profile Photo URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="e.g. https://example.com/photo.jpg"
+                  value={profilePhotoBase64}
+                  onChange={(e) => setProfilePhotoBase64(e.target.value)}
+                  className="w-full bg-slate-900 border-2 border-black rounded-md px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Provide a link to your display picture.</p>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-black/30">
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="btn-primary py-2 px-6 text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2"
+                >
+                  {profileSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    'Save Profile'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: CONTACTS ──────────────────────────────────── */}
+        {tab === 'contacts' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display font-bold text-slate-200 text-xl flex items-center gap-2">
+                  <Users className="w-6 h-6 text-cyan-400" /> Staff & Contacts
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">Manage contact persons and assign them to your venues.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingContact(null);
+                  setIsAddingContact(true);
+                }}
+                className="btn-primary py-2 px-4 text-sm flex items-center gap-2 shadow-[2px_2px_0px_#000]"
+              >
+                <Plus className="w-4 h-4" /> Add Contact
+              </button>
+            </div>
+
+            {(isAddingContact || editingContact) && (
+              <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000] mb-8">
+                <h3 className="font-display font-bold text-slate-200 text-lg mb-4">
+                  {editingContact ? 'Edit Contact Person' : 'Add New Contact Person'}
+                </h3>
+                <form onSubmit={handleSaveContact} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">Full Name *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        defaultValue={editingContact?.name || ''}
+                        required
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">Phone Number *</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        defaultValue={editingContact?.phone || ''}
+                        required
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">Email Address *</label>
+                      <input
+                        type="email"
+                        name="email"
+                        defaultValue={editingContact?.email || ''}
+                        required
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">WhatsApp (Optional)</label>
+                      <input
+                        type="tel"
+                        name="whatsapp"
+                        defaultValue={editingContact?.socials?.whatsapp || ''}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">Instagram Handle (Optional)</label>
+                      <input
+                        type="text"
+                        name="instagram"
+                        placeholder="@username"
+                        defaultValue={editingContact?.socials?.instagram || ''}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-400 uppercase mb-1 block">Facebook URL (Optional)</label>
+                      <input
+                        type="url"
+                        name="facebook"
+                        defaultValue={editingContact?.socials?.facebook || ''}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingContact(false);
+                        setEditingContact(null);
+                      }}
+                      className="px-4 py-2 text-sm font-bold text-slate-300 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary py-2 px-6 text-sm shadow-[2px_2px_0px_#000]">
+                      Save Contact
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {contactPersons.length === 0 && !isAddingContact && !editingContact ? (
+              <div className="glass rounded-lg p-12 text-center border-2 border-black">
+                <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                <h3 className="font-display text-xl font-bold text-slate-200 mb-2">No contacts added</h3>
+                <p className="text-slate-400 mb-6">Add staff members to assign them to your venues for better management.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {contactPersons.map(contact => (
+                  <div key={contact.id} className="glass rounded-lg p-5 border-2 border-black shadow-[4px_4px_0px_#000]">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-display font-bold text-lg text-slate-200">{contact.name}</h4>
+                        <div className="text-sm text-slate-400">{contact.email}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingContact(contact);
+                            setIsAddingContact(false);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center bg-slate-800 border-2 border-black rounded text-slate-300 hover:bg-slate-700 shadow-[1px_1px_0px_#000]"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteContact(contact.id)}
+                          className="w-8 h-8 flex items-center justify-center bg-rose-900/40 border-2 border-black rounded text-rose-400 hover:bg-rose-900/70 shadow-[1px_1px_0px_#000]"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between border-t border-black/30 pt-2">
+                        <span className="text-slate-500">Phone:</span>
+                        <span className="text-slate-300 font-medium">{contact.phone}</span>
+                      </div>
+                      {contact.socials?.whatsapp && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">WhatsApp:</span>
+                          <span className="text-emerald-400 font-medium">{contact.socials.whatsapp}</span>
+                        </div>
+                      )}
+                      {contact.socials?.instagram && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Instagram:</span>
+                          <span className="text-purple-400 font-medium">{contact.socials.instagram}</span>
+                        </div>
+                      )}
+                      {contact.socials?.facebook && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Facebook:</span>
+                          <span className="text-blue-400 font-medium truncate max-w-[150px]">{contact.socials.facebook}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Display assigned venues */}
+                    <div className="mt-4 pt-3 border-t border-black/30">
+                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-2">Assigned Venues:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {venues.filter(v => v.assignedContactId === contact.id).length > 0 ? (
+                          venues.filter(v => v.assignedContactId === contact.id).map(v => (
+                            <span key={v.id} className="text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded font-medium">
+                              {v.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">None</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

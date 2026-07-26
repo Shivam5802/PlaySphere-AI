@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, MapPin, Image as ImageIcon, Clock, Tag } from 'lucide-react';
-import { Venue, Sport, SkillLevel } from '@/shared/types';
+import { Venue, Sport, SkillLevel, ContactPerson } from '@/shared/types';
 import { cn } from '@/shared/helpers/utils';
 
 export type VenueFormData = Omit<Venue, 'id' | 'createdAt' | 'rating' | 'reviewCount' | 'category' | 'peakPricing' | 'ownerId' | 'source' | 'approvalStatus'>;
@@ -12,6 +12,7 @@ interface VenueFormProps {
   onSubmit: (data: VenueFormData) => Promise<void>;
   onCancel: () => void;
   mode: 'add' | 'edit';
+  contactPersons?: ContactPerson[];
 }
 
 const SPORTS: { value: Sport; label: string; emoji: string }[] = [
@@ -56,7 +57,7 @@ const DEFAULT_FORM: VenueFormData = {
   tags: [],
 };
 
-export function VenueForm({ initialData, onSubmit, onCancel, mode }: VenueFormProps) {
+export function VenueForm({ initialData, onSubmit, onCancel, mode, contactPersons = [] }: VenueFormProps) {
   const [form, setForm] = useState<VenueFormData>({ ...DEFAULT_FORM, ...initialData });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -239,6 +240,29 @@ export function VenueForm({ initialData, onSubmit, onCancel, mode }: VenueFormPr
           className="w-full"
         />
       </div>
+
+      {/* Assigned Contact Person */}
+      {contactPersons && contactPersons.length > 0 && (
+        <div>
+          <label htmlFor="assigned-contact" className="field-label flex items-center gap-1">
+            <Tag className="w-3.5 h-3.5" /> Assign Staff/Contact Person (Optional)
+          </label>
+          <select
+            id="assigned-contact"
+            title="Select Contact Person"
+            value={form.assignedContactId || ''}
+            onChange={(e) => update('assignedContactId', e.target.value || undefined)}
+            className="w-full border-2 border-black rounded-md px-4 py-2.5 text-sm shadow-[2px_2px_0px_#000]"
+          >
+            <option value="">-- None (Owner directly manages) --</option>
+            {contactPersons.map(contact => (
+              <option key={contact.id} value={contact.id}>
+                {contact.name} ({contact.phone})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Timings */}
       <div className="grid grid-cols-2 gap-4">

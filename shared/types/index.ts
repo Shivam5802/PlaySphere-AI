@@ -71,6 +71,7 @@ export interface Venue {
   ownerLinked?: boolean;
   linkedOwnerId?: string | null;
   ownershipVerifiedAt?: Timestamp | Date | null;
+  assignedContactId?: string; // Phase 4: Links to a ContactPerson managed by the owner
 }
 
 
@@ -113,9 +114,25 @@ export interface UserProfile {
   savedVenues: string[];
   role: UserRole;                    // v3.0: 'player' | 'owner' | 'admin'
   approvalStatus?: ApprovalStatus;   // v3.0: only relevant for owners
+  isActive?: boolean;                // Account activation status (mainly for players)
   upiId?: string;                    // Phase 3: owner UPI ID
   qrCodeUrl?: string;                // Phase 3: owner QR code URL
+  phoneNumber?: string;              // Owner contact number
+  contactPersons?: ContactPerson[];  // Owner's staff/managers
   createdAt?: Timestamp | Date;
+}
+
+export interface ContactPerson {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  isActive?: boolean;
+  socials?: {
+    instagram?: string;
+    facebook?: string;
+    whatsapp?: string;
+  };
 }
 
 export interface AIMessage {

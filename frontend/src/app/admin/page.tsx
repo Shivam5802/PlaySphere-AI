@@ -13,7 +13,9 @@ import {
   approveOwnershipRequest,
   rejectOwnershipRequest,
   subscribeOwnershipRequests,
-  subscribeInfrastructure
+  subscribeInfrastructure,
+  toggleStaffStatus,
+  togglePlayerStatus
 } from '@/backend/firebase/firestore';
 import { UserProfile, Venue, Booking, Infrastructure, OwnershipRequest } from '@/shared/types';
 import { formatCurrency, formatDate, getSportEmoji, cn } from '@/shared/helpers/utils';
@@ -176,9 +178,33 @@ export default function AdminDashboardPage() {
     setApprovingId(uid);
     try {
       await updateOwnerApproval(uid, 'rejected');
-      showSuccess('🚫 Owner rejected.');
+      showSuccess('🚫 Owner deactivated/rejected.');
     } catch (err) {
       console.error('Error rejecting owner:', err);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleToggleStaff = async (ownerId: string, staffId: string, currentStatus: boolean = true) => {
+    setApprovingId(`staff-${staffId}`);
+    try {
+      await toggleStaffStatus(ownerId, staffId, !currentStatus);
+      showSuccess(`Staff member ${!currentStatus ? 'activated' : 'deactivated'}!`);
+    } catch (err) {
+      console.error('Error toggling staff status:', err);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleTogglePlayer = async (uid: string, currentStatus: boolean = true) => {
+    setApprovingId(`player-${uid}`);
+    try {
+      await togglePlayerStatus(uid, !currentStatus);
+      showSuccess(`Player account ${!currentStatus ? 'activated' : 'deactivated'}!`);
+    } catch (err) {
+      console.error('Error toggling player status:', err);
     } finally {
       setApprovingId(null);
     }
@@ -586,7 +612,7 @@ export default function AdminDashboardPage() {
 
         {/* ── TAB: PLAYERS ──────────────────────────────────────────── */}
         {tab === 'players' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h2 className="font-display text-xl font-bold text-slate-200 mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-cyan-400" /> Players ({players.length})
             </h2>
@@ -597,29 +623,79 @@ export default function AdminDashboardPage() {
                 <p className="text-slate-400 text-sm">When users sign up as players, they will appear here.</p>
               </div>
             ) : (
-              players.map((p) => (
-                <div key={p.uid} className="glass rounded-lg p-4 border-2 border-black flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-md bg-cyan-900/30 border-2 border-black flex items-center justify-center text-cyan-400 font-bold shadow-[2px_2px_0px_#000]">
-                      {p.displayName?.[0]?.toUpperCase() || 'P'}
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-200 text-sm">{p.displayName}</div>
-                      <div className="text-slate-400 text-xs">{p.email}</div>
+              players.map((p) => {
+                const playerBookings = bookings.filter((b) => b.userId === p.uid);
+                const isActive = p.isActive !== false;
+                return (
+                  <div key={p.uid} className="glass rounded-lg p-5 border-2 border-black shadow-[4px_4px_0px_#000]">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-md bg-cyan-900/30 border-2 border-black flex items-center justify-center text-cyan-400 text-lg font-bold shadow-[2px_2px_0px_#000] overflow-hidden shrink-0">
+                          {p.photoURL ? (
+                            <img src={p.photoURL} alt={p.displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            p.displayName?.[0]?.toUpperCase() || 'P'
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-display font-bold text-slate-200 text-lg flex items-center gap-2">
+                            {p.displayName}
+                            <span className={cn(
+                              'text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border border-current',
+                              isActive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'
+                            )}>
+                              {isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="text-slate-400 text-sm">{p.email} {p.phoneNumber ? `• ${p.phoneNumber}` : ''}</div>
+                          <div className="text-xs text-slate-500 mt-1">UID: <span className="font-mono">{p.uid}</span></div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                        <div className="flex gap-4 text-xs text-slate-400 bg-slate-900/50 px-3 py-2 rounded-md border border-black/30">
+                          <div className="text-center">
+                            <div className="font-bold text-slate-200">{playerBookings.length}</div>
+                            <div>Bookings</div>
+                          </div>
+                          <div className="w-px bg-black/40"></div>
+                          <div className="text-center">
+                            <div className="font-bold text-slate-200">{p.savedVenues?.length || 0}</div>
+                            <div>Saved Venues</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <button
+                            onClick={() => handleTogglePlayer(p.uid, isActive)}
+                            disabled={approvingId === `player-${p.uid}`}
+                            className={cn(
+                              'px-3 py-1.5 rounded text-xs font-bold border transition-colors flex items-center gap-1 disabled:opacity-50',
+                              isActive 
+                                ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/40' 
+                                : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/40'
+                            )}
+                          >
+                            {approvingId === `player-${p.uid}` ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : isActive ? (
+                              <XCircle className="w-3 h-3" />
+                            ) : (
+                              <CheckCircle className="w-3 h-3" />
+                            )}
+                            {isActive ? 'Deactivate Player' : 'Activate Player'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-slate-400 text-xs">
-                    {bookings.filter((b) => b.userId === p.uid).length} bookings
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
 
         {/* ── TAB: OWNERS ───────────────────────────────────────────── */}
         {tab === 'owners' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h2 className="font-display text-xl font-bold text-slate-200 mb-4 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-amber-400" /> Venue Owners ({owners.length})
             </h2>
@@ -633,30 +709,107 @@ export default function AdminDashboardPage() {
               owners.map((o) => {
                 const ownerVenues = venues.filter((v) => v.ownerId === o.uid);
                 const ownerBookings = bookings.filter((b) => ownerVenues.some((v) => v.id === b.venueId));
+                const isActive = o.approvalStatus === 'approved';
                 return (
-                  <div key={o.uid} className="glass rounded-lg p-4 border-2 border-black">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-amber-900/30 border-2 border-black flex items-center justify-center text-amber-400 font-bold shadow-[2px_2px_0px_#000]">
-                          {o.displayName?.[0]?.toUpperCase() || 'O'}
+                  <div key={o.uid} className="glass rounded-lg p-5 border-2 border-black shadow-[4px_4px_0px_#000]">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4 pb-4 border-b border-black/20">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-md bg-amber-900/40 border-2 border-black flex items-center justify-center text-amber-400 text-lg font-bold shadow-[2px_2px_0px_#000] overflow-hidden shrink-0">
+                          {o.photoURL ? (
+                            <img src={o.photoURL} alt={o.displayName} className="w-full h-full object-cover" />
+                          ) : (
+                            o.displayName?.[0]?.toUpperCase() || 'O'
+                          )}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-200 text-sm">{o.displayName}</div>
-                          <div className="text-slate-400 text-xs">{o.email}</div>
+                          <div className="font-display font-bold text-slate-200 text-lg flex items-center gap-2">
+                            {o.displayName}
+                            <span className={cn(
+                              'text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border border-current',
+                              isActive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'
+                            )}>
+                              {isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="text-slate-400 text-sm">{o.email} {o.phoneNumber ? `• ${o.phoneNumber}` : ''}</div>
+                          <div className="text-xs text-slate-500 mt-1">UID: <span className="font-mono">{o.uid}</span></div>
                         </div>
                       </div>
-                      <span className={cn(
-                        'text-xs font-bold px-2.5 py-1 rounded-md border-2 border-black shadow-[2px_2px_0px_#000]',
-                        o.approvalStatus === 'approved' ? 'bg-emerald-400 text-black' :
-                        o.approvalStatus === 'pending' ? 'bg-amber-400 text-black' : 'bg-rose-400 text-black'
-                      )}>
-                        {o.approvalStatus || 'pending'}
-                      </span>
+                      <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                        <div className="flex gap-4 text-xs text-slate-400 bg-slate-900/50 px-3 py-2 rounded-md border border-black/30">
+                          <div className="text-center">
+                            <div className="font-bold text-slate-200">{ownerVenues.length}</div>
+                            <div>Venues</div>
+                          </div>
+                          <div className="w-px bg-black/40"></div>
+                          <div className="text-center">
+                            <div className="font-bold text-slate-200">{ownerBookings.length}</div>
+                            <div>Bookings</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {isActive ? (
+                            <button
+                              onClick={() => handleReject(o.uid)}
+                              disabled={approvingId === o.uid}
+                              className="bg-rose-500/20 text-rose-400 border border-rose-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-rose-500/40 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />} Deactivate Owner
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleApprove(o.uid)}
+                              disabled={approvingId === o.uid}
+                              className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-emerald-500/40 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Activate Owner
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-4 mt-3 text-xs text-slate-400">
-                      <span>{ownerVenues.length} venues</span>
-                      <span>•</span>
-                      <span>{ownerBookings.length} total bookings</span>
+                    
+                    {/* Staff Members List */}
+                    <div className="bg-slate-900/40 rounded-lg p-4 border border-black/20">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Staff / Managers ({o.contactPersons?.length || 0})</h4>
+                      
+                      {!o.contactPersons || o.contactPersons.length === 0 ? (
+                        <div className="text-sm text-slate-500 italic">No staff members added by this owner.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          {o.contactPersons.map(staff => {
+                            const isStaffActive = staff.isActive !== false;
+                            return (
+                              <div key={staff.id} className="bg-slate-900 border border-black/30 rounded-md p-3 flex justify-between items-center group hover:border-black/50 transition-colors">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-slate-300 text-sm">{staff.name}</span>
+                                    <span className={cn(
+                                      'w-1.5 h-1.5 rounded-full',
+                                      isStaffActive ? 'bg-emerald-400' : 'bg-rose-500'
+                                    )} />
+                                  </div>
+                                  <div className="text-xs text-slate-500">{staff.email} • {staff.phone}</div>
+                                </div>
+                                
+                                <button
+                                  onClick={() => handleToggleStaff(o.uid, staff.id, isStaffActive)}
+                                  disabled={approvingId === `staff-${staff.id}`}
+                                  className={cn(
+                                    'px-3 py-1 rounded text-[10px] font-bold border transition-colors flex items-center gap-1',
+                                    isStaffActive 
+                                      ? 'text-rose-400 border-rose-400/30 hover:bg-rose-400/10' 
+                                      : 'text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/10'
+                                  )}
+                                >
+                                  {approvingId === `staff-${staff.id}` && <Loader2 className="w-3 h-3 animate-spin" />}
+                                  {isStaffActive ? 'Deactivate' : 'Activate'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

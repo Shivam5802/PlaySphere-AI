@@ -258,6 +258,21 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfile>)
   await updateDoc(doc(db, 'users', uid), data);
 }
 
+export async function togglePlayerStatus(uid: string, isActive: boolean): Promise<void> {
+  await updateUserProfile(uid, { isActive });
+}
+
+export async function toggleStaffStatus(ownerId: string, staffId: string, isActive: boolean): Promise<void> {
+  const profile = await getUserProfile(ownerId);
+  if (!profile || !profile.contactPersons) return;
+
+  const updatedStaff = profile.contactPersons.map(staff => 
+    staff.id === staffId ? { ...staff, isActive } : staff
+  );
+
+  await updateUserProfile(ownerId, { contactPersons: updatedStaff });
+}
+
 export async function cancelBooking(bookingId: string): Promise<void> {
   const bookingRef = doc(db, 'bookings', bookingId);
   const snap = await getDoc(bookingRef);
