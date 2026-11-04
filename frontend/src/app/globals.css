@@ -8,10 +8,10 @@
   --color-slate-900: var(--card-bg);
   --color-slate-800: var(--card-bg-hover);
   --color-slate-200: var(--text-color);
-  --color-slate-300: var(--text-muted);
+  --color-slate-300: var(--text-secondary);
   --color-slate-400: var(--text-muted);
-  --color-slate-500: var(--text-muted);
-  --color-slate-700: var(--text-muted);
+  --color-slate-500: var(--text-subtle);
+  --color-slate-700: var(--text-deemphasized);
 }
 
 @layer base {
@@ -19,12 +19,15 @@
     /* Dark Theme (Default) — Deep Navy Neo-Brutalism */
     --bg-color: #080a10;
     --text-color: #f8fafc;
+    --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
-    --card-bg: #0f1120;
-    --card-bg-hover: #161b2e;
+    --text-subtle: #64748b;
+    --text-deemphasized: #334155;
+    --card-bg: #111827;
+    --card-bg-hover: #1e293b;
     --dot-color: rgba(255, 255, 255, 0.04);
-    --input-bg: #0f1120;
-    --border-color: #000000;
+    --input-bg: #111827;
+    --border-color: #334155;
     --border-width: 3px;
     --shadow-offset: 4px;
     --accent-yellow: #facc15;
@@ -38,7 +41,10 @@
     /* Light Theme — Warm Cream Neo-Brutalism */
     --bg-color: #fafaf7;
     --text-color: #0c0f17;
+    --text-secondary: #374151;
     --text-muted: #4b5563;
+    --text-subtle: #6b7280;
+    --text-deemphasized: #374151;
     --card-bg: #ffffff;
     --card-bg-hover: #f3f4f6;
     --dot-color: rgba(0, 0, 0, 0.06);
@@ -136,23 +142,12 @@
     background-color: var(--card-bg-hover);
   }
 
-  /* Navbar / Footer chrome — sits one step darker than card in dark mode,
-     and uses card-bg in light mode */
+  /* Keep the navigation surface distinct from the page in both themes. */
   .bg-chrome {
-    background-color: var(--bg-color);
-  }
-
-  /* Light mode swaps chrome to white-ish */
-  .light .bg-chrome {
     background-color: var(--card-bg);
   }
 
-  /* Footer is extra deep dark — in light it becomes card-bg */
   .bg-footer {
-    background-color: color-mix(in srgb, var(--bg-color) 90%, #000 10%);
-  }
-
-  .light .bg-footer {
     background-color: var(--card-bg-hover);
   }
 
@@ -176,6 +171,9 @@
 }
 
 @layer utilities {
+  :root:not(.light) .border-black {
+    border-color: var(--border-color);
+  }
 
   /* ── TYPOGRAPHY ─────────────────────────────────────────────── */
   .font-display {
