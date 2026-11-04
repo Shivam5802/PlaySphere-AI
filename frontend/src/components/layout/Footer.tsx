@@ -114,14 +114,14 @@ export function Footer() {
             <p className="text-slate-500 text-xs font-semibold">
               © {currentYear} PlaySphere AI — Built by{' '}
               <span className="text-cyan-500 font-black">Team DeepStack</span>
-              {' '}for Nerds Hack Days 2026
+              {' '}for TEAM DEEPSTACK
             </p>
           </div>
           <p
             className="text-slate-600 text-[10px] uppercase tracking-[0.1em] font-bold"
             style={{ fontFamily: 'var(--font-space-mono, monospace)' }}
           >
-            GEMINI · FIREBASE · NEXT.JS · Nerds Hack Days 2026
+            GEMINI · FIREBASE · NEXT.JS · TEAM DEEPSTACK
           </p>
         </div>
       </div>

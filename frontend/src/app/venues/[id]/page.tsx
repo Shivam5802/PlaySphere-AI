@@ -358,9 +358,9 @@ export default function VenueDetailPage() {
                         <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-1">Venue Owner</div>
                         <div className="font-bold text-slate-200 text-lg mb-1">{ownerContact.name}</div>
                         <div className="text-sm text-slate-400 mb-2">{ownerContact.email}</div>
-                        <div className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30">
+                        <a href={`tel:${ownerContact.phone}`} className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30 hover:text-[#22d3ee] transition-colors">
                           📞 {ownerContact.phone}
-                        </div>
+                        </a>
                       </div>
                     </div>
                   )}
@@ -372,9 +372,9 @@ export default function VenueDetailPage() {
                         <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Venue Manager / Staff</div>
                         <div className="font-bold text-slate-200 text-lg mb-1">{staffContact.name}</div>
                         <div className="text-sm text-slate-400 mb-2">{staffContact.email}</div>
-                        <div className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30">
+                        <a href={`tel:${staffContact.phone}`} className="text-sm text-slate-300 font-medium font-mono bg-slate-950 px-2 py-1 rounded inline-block border border-black/30 hover:text-emerald-400 transition-colors">
                           📞 {staffContact.phone}
-                        </div>
+                        </a>
                       </div>
                       <div className="flex gap-2">
                         {staffContact.socials?.whatsapp && (

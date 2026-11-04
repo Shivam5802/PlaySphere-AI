@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { MapPin } from 'lucide-react';
 import { formatCurrency, getSportEmoji } from '@/shared/helpers/utils';
+import { useGeolocation } from '@/hooks/useGeolocation';
 
 // Haversine formula to compute distance in km
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -106,6 +107,17 @@ function ActiveVenueMap({ items }: VenueMapProps) {
 
   const center = useMemo(() => ({ lat: 26.8467, lng: 80.9462 }), []);
   const [selectedItem, setSelectedItem] = useState<MapItem | null>(null);
+  const { coordinates: userLocation } = useGeolocation();
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const hasPannedToUser = useRef(false);
+
+  useEffect(() => {
+    if (userLocation && mapRef.current && !hasPannedToUser.current) {
+      mapRef.current.panTo(userLocation);
+      mapRef.current.setZoom(13);
+      hasPannedToUser.current = true;
+    }
+  }, [userLocation]);
 
   // Apply vertical and horizontal coordinate micro-offsets for overlapping pins
   // Filter out invalid coordinates to prevent crashes, and precalculate colors
@@ -219,9 +231,9 @@ function ActiveVenueMap({ items }: VenueMapProps) {
   return (
     <div className="w-full h-full relative min-h-[400px]">
       <GoogleMap
-        zoom={12}
+        mapContainerStyle={{ width: '100%', height: '100%' }}
         center={center}
-        mapContainerClassName="w-full h-full"
+        zoom={12}
         options={{
           styles: mapStyles,
           disableDefaultUI: true,
@@ -231,6 +243,7 @@ function ActiveVenueMap({ items }: VenueMapProps) {
           },
           gestureHandling: 'cooperative',
         }}
+        onLoad={(map) => { mapRef.current = map; }}
       >
         {adjustedItems.map((item) => (
           <MarkerF
@@ -248,6 +261,25 @@ function ActiveVenueMap({ items }: VenueMapProps) {
             }}
           />
         ))}
+
+        {/* User Location Marker */}
+        {userLocation && (
+          <MarkerF
+            position={userLocation}
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: '#3b82f6', // blue-500
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              scale: 8,
+            }}
+            zIndex={1000} // Ensure it's on top of other markers
+            onClick={() => {
+              // Optionally show an info window for user location
+            }}
+          />
+        )}
 
         {selectedItem && selectedItem.coordinates && (
           <InfoWindowF

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { Bot, Send, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { cn, formatCurrency, getSportImage } from '@/shared/helpers/utils';
+import { useGeolocation } from '@/hooks/useGeolocation';
 
 interface ConciergeCard {
   venueId: string;
@@ -49,6 +50,7 @@ export function AIConciergePreview() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const { coordinates: userLocation } = useGeolocation();
 
   // When mode changes, reset chat with the appropriate greeting
   useEffect(() => {
@@ -103,7 +105,13 @@ export function AIConciergePreview() {
       const res = await fetch('/api/ai/concierge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, history, mode }),
+        body: JSON.stringify({ 
+          message: messageText, 
+          history, 
+          mode,
+          lat: userLocation?.lat,
+          lng: userLocation?.lng
+        }),
       });
 
       if (!res.ok) {

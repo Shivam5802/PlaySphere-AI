@@ -6,7 +6,9 @@ import { generateTimeSlots } from '@/shared/helpers/pricing';
 export async function handleConciergeRequest(
   message: string,
   history: { role: string; content: string }[],
-  mode: 'discovery' | 'guidance' = 'discovery'
+  mode: 'discovery' | 'guidance' = 'discovery',
+  lat?: number,
+  lng?: number
 ) {
   // ── LIVE FIRESTORE RETRIEVAL ───────────────────────────────────────────
   const liveVenues = await getApprovedVenues().catch(() => []);
@@ -59,7 +61,8 @@ Schema:
   "timeSlot": string | null,
   "bookingIntent": boolean,
   "bookingDate": string | null,
-  "bookingSlot": string | null
+  "bookingSlot": string | null,
+  "nearMe": boolean
 }
 
 Examples:
@@ -76,7 +79,8 @@ JSON: {
   "timeSlot": "tomorrow evening",
   "bookingIntent": false,
   "bookingDate": null,
-  "bookingSlot": null
+  "bookingSlot": null,
+  "nearMe": false
 }
 
 Query: "I want to book a football turf in Chinhat tomorrow at 6 PM"
@@ -92,7 +96,25 @@ JSON: {
   "timeSlot": "tomorrow at 6 PM",
   "bookingIntent": true,
   "bookingDate": "${new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0]}",
-  "bookingSlot": "18:00–19:00"
+  "bookingSlot": "18:00–19:00",
+  "nearMe": false
+}
+
+Query: "Find football turfs near me under 1000"
+JSON: {
+  "sport": "football",
+  "location": null,
+  "landmark": null,
+  "venueName": null,
+  "maxPrice": 1000,
+  "skillLevel": null,
+  "preferredTime": null,
+  "compareMode": false,
+  "timeSlot": null,
+  "bookingIntent": false,
+  "bookingDate": null,
+  "bookingSlot": null,
+  "nearMe": true
 }
 
 Query: "Book Lohia Park Sports Area tomorrow at 11 AM"
@@ -108,7 +130,8 @@ JSON: {
   "timeSlot": "tomorrow at 11 AM",
   "bookingIntent": true,
   "bookingDate": "${new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0]}",
-  "bookingSlot": "11:00–12:00"
+  "bookingSlot": "11:00–12:00",
+  "nearMe": false
 }
 
 User query: "${message}"
@@ -136,6 +159,8 @@ JSON:`;
       skillLevel: parsed.skillLevel || undefined,
       preferredTime: parsed.preferredTime || undefined,
       venueName: parsed.venueName || undefined,
+      nearMe: !!parsed.nearMe,
+      userLocation: lat && lng ? { lat, lng } : undefined,
     };
     isCompareMode = !!parsed.compareMode;
     timeSlotStr = parsed.timeSlot || '';

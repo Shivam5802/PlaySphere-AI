@@ -42,11 +42,11 @@ export default async function HomePage() {
         </div>
 
         <div className="relative max-w-6xl mx-auto text-center">
-          {/* Nerds Hack Days 2026 Badge */}
+          {/* TEAM DEEPSTACK Badge */}
           <div className="inline-flex items-center gap-2 bg-card border-2 border-black rounded-sm px-4 py-2 mb-8 shadow-[2px_2px_0px_#000] animate-stamp-in">
             <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 flex-shrink-0" />
             <span className="font-mono-label text-[10px] text-cyan-400 tracking-[0.18em]">
-              Nerds Hack Days 2026 — TEAM DEEPSTACK
+               TEAM DEEPSTACK
             </span>
           </div>
 

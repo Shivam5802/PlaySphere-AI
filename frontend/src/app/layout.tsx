@@ -32,12 +32,12 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: 'PlaySphere AI — Nerds Hack Days 2026 - Sports Venue Discovery for Lucknow',
+  title: 'PlaySphere AI - Sports Venue Discovery for Lucknow',
   description:
-    'Discover and book badminton courts, football turfs, swimming pools, and akharas across Lucknow with AI-powered recommendations for the Nerds Hack Days 2026.',
-  keywords: 'sports booking Lucknow, badminton court Lucknow, football turf Lucknow, AI sports, PlaySphere, Nerds Hack Days 2026',
+    'Discover and book badminton courts, football turfs, swimming pools, and akharas across Lucknow with AI-powered recommendations for the TEAM DEEPSTACK.',
+  keywords: 'sports booking Lucknow, badminton court Lucknow, football turf Lucknow, AI sports, PlaySphere, TEAM DEEPSTACK',
   openGraph: {
-    title: 'PlaySphere AI — Nerds Hack Days 2026',
+    title: 'PlaySphere AI — TEAM DEEPSTACK',
     description: 'AI-powered sports venue discovery and booking for Lucknow - Event Evaluation',
     type: 'website',
   },

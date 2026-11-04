@@ -1,5 +1,20 @@
 import { Venue } from '@/shared/types';
 
+// Haversine formula to compute distance in km
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export interface RankingCriteria {
   sport?: string;
   area?: string;
@@ -8,6 +23,8 @@ export interface RankingCriteria {
   preferredTime?: string;
   nearLandmark?: string;
   venueName?: string;
+  nearMe?: boolean;
+  userLocation?: { lat: number; lng: number };
 }
 
 export interface RankedVenue {
@@ -105,6 +122,27 @@ export function rankVenues(venues: Venue[], criteria: RankingCriteria): RankedVe
         localityBoost = 15;
       }
 
+      // 6.5 Live Location Proximity Boost
+      let proximityBoost = 0;
+      let distanceKm: number | null = null;
+      if (criteria.nearMe && criteria.userLocation && v.coordinates) {
+        distanceKm = getDistance(
+          criteria.userLocation.lat,
+          criteria.userLocation.lng,
+          v.coordinates.lat,
+          v.coordinates.lng
+        );
+        
+        // Boost for nearby venues
+        if (distanceKm <= 5) {
+          proximityBoost = 40;
+        } else if (distanceKm <= 10) {
+          proximityBoost = 20;
+        } else if (distanceKm <= 20) {
+          proximityBoost = 10;
+        }
+      }
+
       // 7. Infrastructure vs Marketplace Priority Boost
       let priorityBoost = 0;
       const isInfra = v.category === 'infrastructure';
@@ -128,11 +166,13 @@ export function rankVenues(venues: Venue[], criteria: RankingCriteria): RankedVe
           ratingScore * 0.1 +
           availabilityScore * 0.1) *
           100
-      ) + priorityBoost + localityBoost;
+      ) + priorityBoost + localityBoost + proximityBoost;
 
       // Construct programmatic grounded recommendation rationale
-      const targetLocation = criteria.nearLandmark || criteria.area || v.area;
-      const explanation = `Recommended because it is closest to ${targetLocation}, is currently bookable, fits your ₹${v.price} budget, and supports ${v.sport}.`;
+      const targetLocation = criteria.nearMe && distanceKm !== null 
+        ? `your current location (${distanceKm.toFixed(1)} km away)`
+        : (criteria.nearLandmark || criteria.area || v.area);
+      const explanation = `Recommended because it is close to ${targetLocation}, is currently bookable, fits your budget, and supports ${v.sport || 'your needs'}.`;
 
       return {
         venue: v,

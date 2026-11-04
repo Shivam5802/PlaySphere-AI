@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    const { message, history, mode } = body;
+    const { message, history, mode, lat, lng } = body;
 
     // Enforce a hard timeout on the whole concierge handler
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     );
 
     const result = await Promise.race([
-      handleConciergeRequest(message, history ?? [], mode ?? 'discovery'),
+      handleConciergeRequest(message, history ?? [], mode ?? 'discovery', lat, lng),
       timeoutPromise,
     ]);
 
