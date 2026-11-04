@@ -31,9 +31,9 @@
 </p>
 
 <p align="center">
-🌐 <strong>Vercel Link:</strong> <a href="https://aiplaysphere.vercel.app/">https://aiplaysphere.vercel.app/</a> <br />
-🌐 <strong>Netlify Link:</strong> <a href="https://aiplaysphere.netlify.app/">https://aiplaysphere.netlify.app/</a>
-</p>
+🌐 <strong>Vercel Link:</strong> <a href="https://play-sphereai.vercel.app/">https://aiplaysphere.vercel.app/</a> <br />
+<!-- 🌐 <strong>Netlify Link:</strong> <a href="https://aiplaysphere.netlify.app/">https://aiplaysphere.netlify.app/</a>
+</p> -->
 
 <p align="center">
 <a href="#-problem-statement">Problem</a> •
