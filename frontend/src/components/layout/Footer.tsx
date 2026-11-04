@@ -114,7 +114,7 @@ export function Footer() {
             <p className="text-slate-500 text-xs font-semibold">
               © {currentYear} PlaySphere AI — Built by{' '}
               <span className="text-cyan-500 font-black">Team DeepStack</span>
-              {' '}for TEAM DEEPSTACK
+              {' '}for the Lucknow Sports Community.
             </p>
           </div>
           <p
