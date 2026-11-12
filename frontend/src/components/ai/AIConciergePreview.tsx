@@ -38,7 +38,7 @@ const DISCOVERY_GREETING = "Hi! I'm PlaySphere AI (Discovery Mode) 🏆 I can he
 
 const GUIDANCE_GREETING = "Hi! I'm PlaySphere AI (Guidance Mode) 🏸 I'm here to provide light sports tips, basic rules, workout timing advice, and beginner suggestions. Ask me something like:\n\n• \"What are the basic rules of badminton?\"\n• \"Affordable slot timings for beginner practice\"\n• \"Simple guidelines to choose a football size\"";
 
-export function AIConciergePreview() {
+export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean }) {
   const [mode, setMode] = useState<'discovery' | 'guidance'>('discovery');
   const [messages, setMessages] = useState<ChatMessageItem[]>([
     {
@@ -212,7 +212,13 @@ export function AIConciergePreview() {
       </div>
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="h-80 overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth">
+      <div
+        ref={messagesContainerRef}
+        className={cn(
+          "overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth",
+          fullPage ? "h-[480px] md:h-[540px]" : "h-80"
+        )}
+      >
         {messages.map((msg, i) => (
           <div key={i} className={cn("flex flex-col", msg.role === 'user' ? 'items-end' : 'items-start')}>
             <div

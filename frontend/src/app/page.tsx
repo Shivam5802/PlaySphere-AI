@@ -42,13 +42,6 @@ export default async function HomePage() {
         </div>
 
         <div className="relative max-w-6xl mx-auto text-center">
-          {/* TEAM DEEPSTACK Badge */}
-          <div className="inline-flex items-center gap-2 bg-card border-2 border-black rounded-sm px-4 py-2 mb-8 shadow-[2px_2px_0px_#000] animate-stamp-in">
-            <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400 flex-shrink-0" />
-            <span className="font-mono-label text-[10px] text-cyan-400 tracking-[0.18em]">
-               TEAM DEEPSTACK
-            </span>
-          </div>
 
           {/* Main Headline — Bebas Neue display */}
           <h1
@@ -138,10 +131,6 @@ export default async function HomePage() {
       <section className="py-20 px-4 border-b-3 border-black bg-canvas">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            {/* Section label */}
-            <div className="inline-block mb-4">
-              <span className="font-mono-label text-[10px] text-yellow-400 tracking-[0.2em]">PROCESS</span>
-            </div>
             <h2
               className="text-4xl md:text-5xl font-black mb-4 text-primary uppercase tracking-[0.04em]"
               style={{
@@ -207,7 +196,7 @@ export default async function HomePage() {
                 >
                   <step.icon className="w-5 h-5 stroke-[2px]" />
                 </div>
-                <h3 className="font-display font-black text-primary mb-2 text-sm uppercase tracking-[0.1em]">
+                <h3 className="font-display font-black text-primary mb-2 text-sm uppercase tracking-widest">
                   {step.title}
                 </h3>
                 <p className="text-slate-500 text-sm leading-relaxed font-medium">{step.desc}</p>
@@ -221,9 +210,6 @@ export default async function HomePage() {
       <section className="py-20 px-4 border-b-3 border-black">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-block mb-4">
-              <span className="font-mono-label text-[10px] text-cyan-400 tracking-[0.2em]">CATEGORIES</span>
-            </div>
             <h2
               className="text-4xl md:text-5xl font-black mb-4 text-primary uppercase tracking-[0.04em]"
               style={{
@@ -270,9 +256,6 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-end justify-between mb-14">
             <div>
-              <div className="mb-3">
-                <span className="font-mono-label text-[10px] text-yellow-400 tracking-[0.2em]">TOP PICKS</span>
-              </div>
               <h2
                 className="text-4xl md:text-5xl font-black mb-2 text-primary uppercase tracking-[0.04em]"
                 style={{
@@ -313,7 +296,7 @@ export default async function HomePage() {
             <div>
               {/* Label badge */}
               <div className="inline-flex items-center gap-2 rounded-sm px-3 py-2 bg-card border-2 border-black mb-6 shadow-[2px_2px_0px_#000]">
-                <Bot className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                <Bot className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 <span className="font-mono-label text-[9px] text-cyan-400 tracking-[0.18em]">
                   POWERED BY GEMINI
                 </span>
@@ -348,7 +331,7 @@ export default async function HomePage() {
                     key={example}
                     className="flex items-center gap-3 bg-card border-2 border-black rounded-sm px-4 py-3 shadow-[2px_2px_0px_#000] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[3px_3px_0px_#facc15] transition-all duration-150"
                   >
-                    <div className="w-2 h-2 bg-yellow-400 flex-shrink-0 border border-black" />
+                    <div className="w-2 h-2 bg-yellow-400 shrink-0 border border-black" />
                     <span className="text-slate-400 text-sm font-semibold italic">{example}</span>
                   </div>
                 ))}
@@ -439,9 +422,6 @@ export default async function HomePage() {
       <section className="py-20 px-4 border-b-3 border-black">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <div className="mb-4">
-              <span className="font-mono-label text-[10px] text-pink-400 tracking-[0.2em]">TESTIMONIALS</span>
-            </div>
             <h2
               className="text-4xl md:text-5xl font-black mb-4 text-primary uppercase tracking-[0.04em]"
               style={{
@@ -495,7 +475,7 @@ export default async function HomePage() {
                   </div>
                   <div>
                     <div className="text-primary text-sm font-black">{review.name}</div>
-                    <div className="font-mono-label text-[9px] text-slate-600 tracking-[0.1em]">{review.sport}</div>
+                    <div className="font-mono-label text-[9px] text-slate-600 tracking-widest">{review.sport}</div>
                   </div>
                 </div>
               </div>

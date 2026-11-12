@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Eye, EyeOff, Zap, ArrowRight, Loader2, Building2, Shield } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2, Building2, Shield } from 'lucide-react';
 import { signUpWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
 import { cn } from '@/shared/helpers/utils';
 
 type Role = 'player' | 'owner';
@@ -40,6 +41,7 @@ const ROLE_CARDS: RoleCard[] = [
 
 export default function SignupPage() {
   const router = useRouter();
+  const toast = useToast();
   const [selectedRole, setSelectedRole] = useState<Role>('player');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -47,7 +49,6 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
   const { user, loading: authLoading, isOwner, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -60,17 +61,23 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
     setLoading(true);
-    setError('');
     try {
       await signUpWithEmail(email, password, name, selectedRole);
+      toast.success('Account created successfully! Welcome to PlaySphere AI.');
       if (selectedRole === 'owner') router.push('/owner');
       else router.push('/dashboard');
     } catch (err: unknown) {
       const msg = (err as { code?: string })?.code;
-      if (msg === 'auth/email-already-in-use') setError('Email already registered. Please sign in.');
-      else setError('Registration failed. Please try again.');
+      if (msg === 'auth/email-already-in-use') {
+        toast.error('Email already registered. Please sign in.');
+      } else {
+        toast.error('Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,12 +85,12 @@ export default function SignupPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    setError('');
     try {
       await signInWithGoogle();
+      toast.success('Signed in with Google! Redirecting...');
       // Redirect will be handled by the useEffect watching user / role states
     } catch {
-      setError('Google sign-in failed.');
+      toast.error('Google sign-in failed. Please try again.');
     } finally {
       setGoogleLoading(false);
     }
@@ -94,12 +101,6 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 font-display font-bold text-2xl mb-2">
-            <div className="w-10 h-10 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
-              <Zap className="w-5 h-5 text-black fill-black" />
-            </div>
-            <span className="gradient-text [text-shadow:1.5px_1.5px_0px_#000]">PlaySphere AI</span>
-          </Link>
           <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Create your account</h1>
           <p className="text-slate-400 text-sm mt-1 font-medium">Join the AI-powered sports marketplace for Lucknow</p>
         </div>
@@ -116,7 +117,7 @@ export default function SignupPage() {
                 <button
                   key={card.id}
                   type="button"
-                  onClick={() => { setSelectedRole(card.id); setError(''); }}
+                  onClick={() => setSelectedRole(card.id)}
                   className={cn(
                     'relative flex flex-col items-center gap-2 p-4 rounded-md border-2 text-center transition-all cursor-pointer',
                     selectedRole === card.id
@@ -228,12 +229,6 @@ export default function SignupPage() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-
-            {error && (
-              <div className="bg-red-500/10 border-2 border-black rounded-md px-4 py-3 text-red-400 text-sm font-bold shadow-[2px_2px_0px_#000]">
-                {error}
-              </div>
-            )}
 
             <button
               type="submit"

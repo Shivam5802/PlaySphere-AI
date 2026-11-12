@@ -5,6 +5,7 @@ import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-ma
 import { MapPin } from 'lucide-react';
 import { formatCurrency, getSportEmoji } from '@/shared/helpers/utils';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useTheme } from '@/contexts/ThemeProvider';
 
 // Haversine formula to compute distance in km
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -47,7 +48,7 @@ interface VenueMapProps {
 
 function MapSkeleton({ message = 'Loading realtime venue mapping and infrastructure layers...' }: { message?: string }) {
   return (
-    <div className="w-full h-full bg-[#080a10] relative overflow-hidden flex flex-col items-center justify-center p-6 min-h-[400px]">
+    <div className="w-full h-full bg-card relative overflow-hidden flex flex-col items-center justify-center p-6 min-h-[400px]">
       {/* Self-contained shimmer keyframe style */}
       <style>{`
         @keyframes shimmer {
@@ -208,8 +209,11 @@ function ActiveVenueMap({ items }: VenueMapProps) {
     return <MapSkeleton message="Connecting to Google Maps services..." />;
   }
 
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   // Sleek dark mode map style
-  const mapStyles = [
+  const darkMapStyles = useMemo(() => [
     { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
     { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
     { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
@@ -218,7 +222,30 @@ function ActiveVenueMap({ items }: VenueMapProps) {
     { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e293b' }] },
     { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
     { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
-  ];
+  ], []);
+
+  // Clean, high-contrast light mode map style
+  const lightMapStyles = useMemo(() => [
+    { elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#1e293b' }] },
+    { featureType: 'poi.sports_complex', elementType: 'geometry', stylers: [{ color: '#bbf7d0' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#dcfce7' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#fed7aa' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bae6fd' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#94a3b8' }] },
+  ], []);
+
+  const mapStyles = isLight ? lightMapStyles : darkMapStyles;
+
+  // Reactively reapply style options when theme toggles
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setOptions({ styles: isLight ? lightMapStyles : darkMapStyles });
+    }
+  }, [isLight, lightMapStyles, darkMapStyles]);
 
   const activeMarketplaceCount = items.filter(
     (item) => item.mapType === 'marketplace' && item.available
@@ -291,7 +318,7 @@ function ActiveVenueMap({ items }: VenueMapProps) {
             }}
           >
             {/* Custom popup UI - exact same modern cards as Mapbox v8 */}
-            <div className="rounded-lg overflow-hidden bg-slate-900 border-2 border-black shadow-[4px_4px_0px_#000] min-w-[220px] max-w-[280px] text-slate-200">
+            <div className="rounded-lg overflow-hidden bg-card border-2 border-black shadow-[4px_4px_0px_#000] min-w-[220px] max-w-[280px] text-primary">
               {/* Image Header (if applicable) */}
               {selectedItem.mapType !== 'landmark' && selectedItem.imageUrl && (
                 <div className="relative h-28 overflow-hidden">
@@ -301,7 +328,7 @@ function ActiveVenueMap({ items }: VenueMapProps) {
                     alt={selectedItem.name}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                   {selectedItem.sport && (
                     <div className="absolute bottom-2 left-2 text-xs font-bold px-2 py-0.5 rounded border border-black bg-[#22d3ee] text-black">
                       {getSportEmoji(selectedItem.sport)} {selectedItem.sport}
@@ -321,10 +348,10 @@ function ActiveVenueMap({ items }: VenueMapProps) {
 
               {/* Popup Content */}
               <div className="p-3">
-                <h4 className="font-extrabold text-sm mb-1 font-sans text-slate-200">
+                <h4 className="font-extrabold text-sm mb-1 font-sans text-primary">
                   {selectedItem.name}
                 </h4>
-                <div className="text-slate-400 text-xs mb-2 flex items-center gap-1">
+                <div className="text-muted-theme text-xs mb-2 flex items-center gap-1 font-medium">
                   <span>📍</span> {selectedItem.area}
                 </div>
 
@@ -398,7 +425,7 @@ function ActiveVenueMap({ items }: VenueMapProps) {
       </GoogleMap>
 
       {/* Map Stats Badge */}
-      <div className="absolute top-3 left-3 bg-slate-900 border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold text-slate-200 shadow-[3px_3px_0px_0px_#000] pointer-events-none">
+      <div className="absolute top-3 left-3 bg-card border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold text-primary shadow-[3px_3px_0px_0px_#000] pointer-events-none">
         <MapPin className="w-3.5 h-3.5 inline mr-1.5 text-cyan-400" />
         {activeMarketplaceCount} active venues ({mappedInfraCount} mapped)
       </div>
@@ -431,7 +458,7 @@ export function VenueMap(props: VenueMapProps) {
   return (
     <div 
       ref={containerRef} 
-      className="h-[400px] sm:h-[500px] md:h-[600px] w-full rounded-xl overflow-hidden relative border-2 border-black shadow-[4px_4px_0px_0px_#000] bg-[#080a10]"
+      className="h-[400px] sm:h-[500px] md:h-[600px] w-full rounded-xl overflow-hidden relative border-2 border-black shadow-[4px_4px_0px_0px_#000] bg-card"
     >
       {shouldLoad ? (
         <ActiveVenueMap {...props} />

@@ -8,7 +8,6 @@ import { VenueCard } from '@/components/venue/VenueCard';
 import { VenueMap, MapItem } from '@/components/venue/VenueMap';
 import { getSportImage } from '@/shared/helpers/utils';
 import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
-import { VenueDiscoveryInsights } from '@/components/ai/VenueDiscoveryInsights';
 import { Venue, VenueFilters, Sport, SkillLevel, Infrastructure, Landmark } from '@/shared/types';
 
 function VenuesContent() {
@@ -191,10 +190,6 @@ function VenuesContent() {
           </p>
         </div>
 
-        <div className="mb-10">
-          <VenueDiscoveryInsights />
-        </div>
-
         {/* Search Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
@@ -232,14 +227,6 @@ function VenuesContent() {
               className={`px-4 py-3 border-l-2 border-r-2 border-black transition-colors ${view === 'map' ? 'bg-emerald-400 text-black font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
             >
               <Map className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleViewChange('ai')}
-              title="AI Concierge"
-              aria-label="AI Concierge"
-              className={`px-4 py-3 transition-colors ${view === 'ai' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-            >
-              <Bot className="w-4 h-4" />
             </button>
           </div>
         </div>

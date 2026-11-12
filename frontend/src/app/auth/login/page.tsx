@@ -3,19 +3,20 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Loader2, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Shield } from 'lucide-react';
 import { signInWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
 import { useEffect } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
   const { user, loading: authLoading, isAdmin, isOwner } = useAuth();
 
   useEffect(() => {
@@ -29,13 +30,26 @@ export default function LoginPage() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     try {
       await signInWithEmail(email, password);
+      toast.success('Signed in successfully! Redirecting...');
       // Redirect will be handled by the useEffect watching isAdmin/isOwner
     } catch (err: unknown) {
-      console.error('Login error:', err);
-      setError('Invalid email or password. Please try again.');
+      const firebaseError = err as { code?: string; message?: string };
+      const code = firebaseError?.code || '';
+
+      let message = 'Invalid email or password. Please try again.';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        message = 'Invalid email or password. Please try again.';
+      } else if (code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please wait a moment and try again.';
+      } else if (code === 'auth/user-disabled') {
+        message = 'This account has been disabled.';
+      } else if (code === 'auth/invalid-email') {
+        message = 'Please enter a valid email address.';
+      }
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -43,13 +57,12 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    setError('');
     try {
       await signInWithGoogle();
+      toast.success('Signed in with Google! Redirecting...');
       // Redirect handled by useEffect
-    } catch (err: unknown) {
-      console.error('Google login error:', err);
-      setError('Google sign-in failed. Please try again.');
+    } catch {
+      toast.error('Google sign-in was cancelled or failed.');
     } finally {
       setGoogleLoading(false);
     }
@@ -60,13 +73,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 font-display font-bold text-2xl mb-2">
-            <div className="w-10 h-10 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
-              <Zap className="w-5 h-5 text-black fill-black" />
-            </div>
-            <span className="gradient-text [text-shadow:1.5px_1.5px_0px_#000]">PlaySphere AI</span>
-          </Link>
-          <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Welcome back</h1>
+          <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Welcome back !!</h1>
           <p className="text-slate-400 text-sm mt-1 font-medium">Sign in to continue your sports journey</p>
         </div>
 
@@ -131,39 +138,10 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border-2 border-black rounded-md px-4 py-3 text-red-400 text-sm font-bold shadow-[2px_2px_0px_#000]">
-                {error}
-              </div>
-            )}
-
             <button type="submit" disabled={loading} className="w-full btn-primary justify-center py-3">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
-
-          {/* Super Admin Quick Access */}
-          {process.env.NEXT_PUBLIC_ADMIN_EMAILS && (
-            <div className="mt-6 pt-5 border-t-2 border-black/30">
-              <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-3.5 h-3.5 text-purple-400" />
-                <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">Super Admin Access</span>
-              </div>
-              <p className="text-slate-500 text-xs mb-3">
-                Admin accounts are determined by email. Sign in with your registered admin email above to access the{' '}
-                <Link href="/admin" className="text-purple-400 hover:text-purple-300 font-bold transition-colors">
-                  Admin Dashboard ↗
-                </Link>
-                .
-              </p>
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-md px-3 py-2 text-xs text-purple-300 font-mono">
-                Admin email set via{' '}
-                <span className="text-purple-200 font-bold">NEXT_PUBLIC_ADMIN_EMAILS</span>{' '}
-                in <span className="text-purple-200">.env.local</span>
-              </div>
-            </div>
-          )}
-
           <p className="text-center text-slate-400 text-sm mt-6 font-medium">
             New to PlaySphere?{' '}
             <Link href="/auth/signup" className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors underline decoration-black underline-offset-4">

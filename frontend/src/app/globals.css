@@ -56,6 +56,18 @@
     box-sizing: border-box;
   }
 
+  /* Universal pointer cursor for all buttons, links & interactive controls */
+  button,
+  a,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  select,
+  summary {
+    cursor: pointer !important;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -598,3 +610,48 @@
   text-transform: uppercase;
   color: #000000;
 }
+
+/* ── 3D FLIP CARD UTILITIES ────────────────────────────────────────────── */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+.group:hover .group-hover\:rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* ── TOAST PROGRESS & ENTRANCE ANIMATIONS ───────────────────────── */
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+

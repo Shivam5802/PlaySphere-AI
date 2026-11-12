@@ -672,78 +672,27 @@ R-->>C: 201 { success: true, booking }
 - **Firebase** (optional) — [Firebase Console](https://console.firebase.google.com/)
 - The app works **without Firebase** using a local JSON database fallback
 
-### Step 1: Clone the Repository
+### Quick Start (Local Setup)
 
 ```bash
-git clone https://github.com/your-username/PlaySphere.git
-cd PlaySphere
-```
+# 1. Clone the repository
+git clone https://github.com/your-username/PlaySphere-AI.git
+cd PlaySphere-AI
 
-### Step 2: Configure Backend Environment
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Edit `.env` with your configuration:
-
-```env
-PORT=5000
-JWT_SECRET=your_secure_secret_key
-JWT_EXPIRE=30d
-CLIENT_URL=http://localhost:5173
-
-# Firebase Configuration (leave blank to use local JSON database)
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY=
-```
-
-> 💡 **No Firebase?** That's fine! Leave the Firebase fields blank and PlaySphere will use `localDb.json` automatically.
-
-### Step 3: Install & Seed Backend
-
-```bash
-npm install
-npm run seed # Seeds 15 Lucknow venues, 5 users, 30 bookings, reviews
-npm run dev # Starts Express server on port 5000
-```
-
-Expected seed output:
-```
-⚠️ Firebase credentials not provided. Falling back to local JSON Database
-✨ PlaySphere Database Adapter Loaded (Firebase Firestore / Local Fallback Active)
-🌱 Starting PlaySphere database seed...
-🗑️ Cleared existing data
-✅ Created 5 users
-✅ Created 15 venues in Lucknow
-✅ Created 12 reviews
-✅ Created 30 sample bookings
-
-═══════════════════════════════════════════
-🎉 PlaySphere seed complete!
-
-📋 Demo Credentials:
-Admin: admin@playsphere.in / admin123
-Venue Owner: rahul@playsphere.in / password123
-Player: arjun@playsphere.in / password123
-═══════════════════════════════════════════
-```
-
-### Step 4: Install & Run Frontend
-
-Open a **new terminal**:
-
-```bash
+# 2. Go to frontend
 cd frontend
+
+# 3. Setup environment variables
+cp .env.example .env.local
+
+# 4. Install dependencies
 npm install
-npm run dev # Starts Vite dev server on port 5173
+
+# 5. Start the development server
+npm run dev
 ```
 
-### Step 5: Open in Browser
-
-Navigate to **[http://localhost:5173](http://localhost:5173)** 🚀
+Open **[http://localhost:3000](http://localhost:3000)** in your browser 🚀
 
 ---
 
@@ -888,17 +837,6 @@ style Dashboard fill:#1a1040,stroke:#8b5cf6,color:#c4b5fd
 </tr>
 <tr>
 <td align="center" width="250">
-<a href="https://github.com/suyashverma0">
-<img src="https://img.shields.io/badge/suyashverma0-181717?style=for-the-badge&logo=github&logoColor=white" />
-</a>
-<br />
-<strong>Suyash Verma</strong>
-<br />
-<sub>⚙️ Backend Developer</sub>
-<br />
-<sub>Express API routes, JWT auth middleware, Socket.IO real-time engine, booking conflict logic</sub>
-</td>
-<td align="center" width="250">
 <a href="https://github.com/devvikax">
 <img src="https://img.shields.io/badge/devvikax-181717?style=for-the-badge&logo=github&logoColor=white" />
 </a>
@@ -917,9 +855,8 @@ style Dashboard fill:#1a1040,stroke:#8b5cf6,color:#c4b5fd
 ```mermaid
 graph LR
 subgraph Team["👨‍💻 PlaySphere Team"]
-SS["🏆 Suryansh Singh<br/>Team Lead · Architecture"]
-SJ["⚙️ Shivam Jaiswal<br/>Backend"]
-SV["🎨 Suyash Verma<br/>Frontend"]
+SS["🏆 Suryansh Singh<br/>Team Lead · full-stack"]
+SJ["⚙️ Shivam Jaiswal<br/>frontend"]
 VP["🤖 Vikas Patel<br/>AI/ML"]
 end
 
@@ -1044,7 +981,7 @@ Distributed under the **MIT License**. See `LICENSE` for details.
 <p align="center">
 <sub>
 Built with ❤️ by <strong>Team PlaySphere</strong> for the <strong>Agentic Premier League Hackathon 2026</strong><br/>
-<a href="https://github.com/suryanshsingh07">Suryansh Singh</a> · <a href="https://github.com/shivam5802">Shivam Jaiswal</a> · <a href="https://github.com/suyashverma0">Suyash Verma</a> · <a href="https://github.com/devvikax">Vikas Patel</a><br/><br/>
+<a href="https://github.com/suryanshsingh07">Suryansh Singh</a> · <a href="https://github.com/shivam5802">Shivam Jaiswal</a> · <a href="https://github.com/devvikax">Vikas Patel</a><br/><br/>
 React 18 · Node.js · Firebase · Socket.IO · Custom AI Agents · SVG Charts · Glassmorphism UI
 </sub>
 </p>
