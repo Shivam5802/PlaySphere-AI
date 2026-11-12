@@ -19,10 +19,10 @@ interface ConciergeCard {
   action: 'book' | 'view' | 'verify';
 }
 
-interface ChatMessageItem {
+export interface ChatMessageItem {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isError?: boolean;
   action?: {
     type: 'book';
@@ -34,44 +34,64 @@ interface ChatMessageItem {
   cards?: ConciergeCard[];
 }
 
-const DISCOVERY_GREETING = "Hi! I'm PlaySphere AI (Discovery Mode) 🏆 I can help you find and compare sports venues in Lucknow. Ask me something like:\n\n• \"Beginner badminton near Gomti Nagar under ₹300\"\n• \"Football turf for 10 friends this weekend\"\n• \"Cheapest swimming pool near Hazratganj\"";
+export const DISCOVERY_GREETING = "Hi! I'm PlaySphere AI (Discovery Mode) 🏆 I can help you find and compare sports venues in Lucknow. Ask me something like:\n\n• \"Beginner badminton near Gomti Nagar under ₹300\"\n• \"Football turf for 10 friends this weekend\"\n• \"Cheapest swimming pool near Hazratganj\"";
 
-const GUIDANCE_GREETING = "Hi! I'm PlaySphere AI (Guidance Mode) 🏸 I'm here to provide light sports tips, basic rules, workout timing advice, and beginner suggestions. Ask me something like:\n\n• \"What are the basic rules of badminton?\"\n• \"Affordable slot timings for beginner practice\"\n• \"Simple guidelines to choose a football size\"";
+export const GUIDANCE_GREETING = "Hi! I'm PlaySphere AI (Guidance Mode) 🏸 I'm here to provide light sports tips, basic rules, workout timing advice, and beginner suggestions. Ask me something like:\n\n• \"What are the basic rules of badminton?\"\n• \"Affordable slot timings for beginner practice\"\n• \"Simple guidelines to choose a football size\"";
 
-export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean }) {
+export interface AIConciergePreviewProps {
+  fullPage?: boolean;
+  initialMessages?: ChatMessageItem[];
+  onMessagesChange?: (messages: ChatMessageItem[]) => void;
+  onNewChat?: () => void;
+}
+
+export function AIConciergePreview({
+  fullPage = false,
+  initialMessages,
+  onMessagesChange,
+  onNewChat,
+}: AIConciergePreviewProps) {
   const [mode, setMode] = useState<'discovery' | 'guidance'>('discovery');
-  const [messages, setMessages] = useState<ChatMessageItem[]>([
-    {
-      role: 'assistant',
-      content: DISCOVERY_GREETING,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessageItem[]>(() => {
+    return initialMessages && initialMessages.length > 0
+      ? initialMessages
+      : [
+          {
+            role: 'assistant',
+            content: DISCOVERY_GREETING,
+            timestamp: new Date(),
+          },
+        ];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { coordinates: userLocation } = useGeolocation();
 
-  // When mode changes, reset chat with the appropriate greeting
+  // Scroll to bottom when messages update
   useEffect(() => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: mode === 'discovery' ? DISCOVERY_GREETING : GUIDANCE_GREETING,
-        timestamp: new Date(),
-      },
-    ]);
-  }, [mode]);
-
-  const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages]);
+
+  const handleModeSwitch = (newMode: 'discovery' | 'guidance') => {
+    if (mode === newMode) return;
+    setMode(newMode);
+    
+    // Only switch greeting if no user messages have been sent yet
+    const hasUserMessages = messages.some((m) => m.role === 'user');
+    if (!hasUserMessages) {
+      const nextGreeting: ChatMessageItem[] = [
+        {
+          role: 'assistant',
+          content: newMode === 'discovery' ? DISCOVERY_GREETING : GUIDANCE_GREETING,
+          timestamp: new Date(),
+        },
+      ];
+      setMessages(nextGreeting);
+    }
+  };
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -86,19 +106,23 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
       timestamp: new Date(),
     };
 
+    let updatedList: ChatMessageItem[];
     if (isRetry) {
       // Remove the last error assistant message
-      setMessages((prev) => prev.slice(0, -1));
-    } else if (!text || !messages.some(m => m.role === 'user' && m.content === messageText && Date.now() - m.timestamp.getTime() < 5000)) {
-      setMessages((prev) => [...prev, userMessage]);
+      updatedList = messages.slice(0, -1);
+    } else {
+      updatedList = [...messages, userMessage];
     }
+    
+    setMessages(updatedList);
+    onMessagesChange?.(updatedList);
     
     setInput('');
     setLoading(true);
 
     try {
       // Get conversation history excluding initial greeting
-      const history = messages
+      const history = updatedList
         .filter((_, idx) => idx > 0)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -136,14 +160,18 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
         action: data.action,
         cards: data.cards || [],
       };
-      setMessages((prev) => [...prev, aiMessage]);
+      const finalSuccessList = [...updatedList, aiMessage];
+      setMessages(finalSuccessList);
+      onMessagesChange?.(finalSuccessList);
     } catch (err) {
       console.error('Concierge request error:', err);
       const errorMsg = 'AI Concierge temporarily unavailable.';
-      setMessages((prev) => [
-        ...prev,
+      const finalErrorList: ChatMessageItem[] = [
+        ...updatedList,
         { role: 'assistant', content: errorMsg, timestamp: new Date(), isError: true },
-      ]);
+      ];
+      setMessages(finalErrorList);
+      onMessagesChange?.(finalErrorList);
     } finally {
       setLoading(false);
     }
@@ -173,8 +201,8 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
   return (
     <div className="bg-card border-3 border-black overflow-hidden shadow-[6px_6px_0px_#000]">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b-2 border-black bg-purple-600 text-white">
-        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b-2 border-black bg-purple-600 text-white">
+        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] flex-shrink-0">
           <Bot className="w-5 h-5 text-black" />
         </div>
         <div>
@@ -184,14 +212,27 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
             <span className="text-xs text-white/95 font-semibold">Online • Powered by Gemini</span>
           </div>
         </div>
-        <Sparkles className="w-4 h-4 text-yellow-400 ml-auto fill-yellow-400" />
+
+        {onNewChat && (
+          <button
+            onClick={onNewChat}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase bg-yellow-400 text-black border-2 border-black rounded shadow-[2px_2px_0px_#000] hover:bg-yellow-300 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            title="Start a new chat session"
+          >
+            <RefreshCw className="w-3.5 h-3.5 stroke-[2.5px]" />
+            <span className="hidden sm:inline">New Chat</span>
+          </button>
+        )}
+        {!onNewChat && (
+          <Sparkles className="w-4 h-4 text-yellow-400 ml-auto fill-yellow-400" />
+        )}
       </div>
 
       {/* Mode Selector Toggle */}
       <div className="flex border-b-2 border-black p-2 bg-card-nested gap-2">
         <button
           suppressHydrationWarning={true}
-          onClick={() => setMode('discovery')}
+          onClick={() => handleModeSwitch('discovery')}
           className={cn(
             "flex-1 text-center py-1.5 text-xs font-black border-2 border-black transition-all shadow-[2px_2px_0px_#000] cursor-pointer",
             mode === 'discovery' ? "bg-purple-600 text-white shadow-[1px_1px_0px_#000] translate-x-0.5 translate-y-0.5" : "bg-card text-muted-theme hover:text-primary"
@@ -201,7 +242,7 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
         </button>
         <button
           suppressHydrationWarning={true}
-          onClick={() => setMode('guidance')}
+          onClick={() => handleModeSwitch('guidance')}
           className={cn(
             "flex-1 text-center py-1.5 text-xs font-black border-2 border-black transition-all shadow-[2px_2px_0px_#000] cursor-pointer",
             mode === 'guidance' ? "bg-emerald-400 text-black shadow-[1px_1px_0px_#000] translate-x-0.5 translate-y-0.5" : "bg-card text-muted-theme hover:text-primary"
@@ -216,7 +257,7 @@ export function AIConciergePreview({ fullPage = false }: { fullPage?: boolean })
         ref={messagesContainerRef}
         className={cn(
           "overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth",
-          fullPage ? "h-[480px] md:h-[540px]" : "h-80"
+          fullPage ? "h-[320px] md:h-[350px]" : "h-72"
         )}
       >
         {messages.map((msg, i) => (

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Bot,
@@ -7,19 +8,181 @@ import {
   Lock,
   LogIn,
   ArrowRight,
-  ShieldCheck,
   Zap,
-  MapPin,
   Clock,
   Compass,
-  MessageSquareText,
   UserCheck,
+  History,
+  Plus,
+  Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
-import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
+import {
+  AIConciergePreview,
+  ChatMessageItem,
+  DISCOVERY_GREETING,
+} from '@/components/ai/AIConciergePreview';
+import { cn } from '@/shared/helpers/utils';
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessageItem[];
+  createdAt: number;
+  updatedAt: number;
+}
 
 export default function ConciergePage() {
   const { user, profile, loading } = useAuth();
+
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('');
+  const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
+
+  // Initialize a fresh new chat every time the user visits the page
+  useEffect(() => {
+    const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
+    let savedSessions: ChatSession[] = [];
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          savedSessions = parsed;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    }
+
+    setSessions(savedSessions);
+
+    // Always start with a fresh new chat session on entry
+    const freshId = `session_${Date.now()}`;
+    const freshSession: ChatSession = {
+      id: freshId,
+      title: 'New Conversation',
+      messages: [
+        {
+          role: 'assistant',
+          content: DISCOVERY_GREETING,
+          timestamp: new Date(),
+        },
+      ],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    setActiveSessionId(freshId);
+    setActiveSession(freshSession);
+  }, [user?.uid]);
+
+  // Handle messages update from AIConciergePreview
+  const handleMessagesChange = useCallback((newMessages: ChatMessageItem[]) => {
+    setActiveSession((currentActive) => {
+      if (!currentActive) return null;
+
+      const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
+      const hasUserMessage = newMessages.some((m) => m.role === 'user');
+
+      // Title derived from first user query
+      const firstUserMsg = newMessages.find((m) => m.role === 'user');
+      let title = currentActive.title;
+      if (firstUserMsg && currentActive.title === 'New Conversation') {
+        const cleanPrompt = firstUserMsg.content.trim();
+        title = cleanPrompt.slice(0, 32) + (cleanPrompt.length > 32 ? '...' : '');
+      }
+
+      const updatedSession: ChatSession = {
+        ...currentActive,
+        title,
+        messages: newMessages,
+        updatedAt: Date.now(),
+      };
+
+      // Only save in history if user has engaged with the conversation
+      if (hasUserMessage) {
+        setSessions((prev) => {
+          const exists = prev.some((s) => s.id === updatedSession.id);
+          const nextSessions = exists
+            ? prev.map((s) => (s.id === updatedSession.id ? updatedSession : s))
+            : [updatedSession, ...prev];
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(nextSessions));
+          } catch (err) {
+            console.error('Failed to save chat sessions:', err);
+          }
+          return nextSessions;
+        });
+      }
+
+      return updatedSession;
+    });
+  }, [user]);
+
+  // Start a fresh new chat session
+  const handleStartNewChat = () => {
+    const freshId = `session_${Date.now()}`;
+    const freshSession: ChatSession = {
+      id: freshId,
+      title: 'New Conversation',
+      messages: [
+        {
+          role: 'assistant',
+          content: DISCOVERY_GREETING,
+          timestamp: new Date(),
+        },
+      ],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    setActiveSessionId(freshId);
+    setActiveSession(freshSession);
+  };
+
+  // Switch to an existing chat session from history
+  const handleSelectSession = (session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setActiveSession(session);
+  };
+
+  // Delete a session
+  const handleDeleteSession = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
+    const nextSessions = sessions.filter((s) => s.id !== id);
+    setSessions(nextSessions);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextSessions));
+    } catch {}
+
+    if (activeSessionId === id) {
+      handleStartNewChat();
+    }
+  };
+
+  // Clear all chat history
+  const handleClearAllHistory = () => {
+    const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
+    setSessions([]);
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+    handleStartNewChat();
+  };
+
+  // Formatter for timestamp
+  const formatSessionTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
 
   return (
     <div className="min-h-screen bg-canvas py-12 px-4 sm:px-6 lg:px-8">
@@ -179,48 +342,101 @@ export default function ConciergePage() {
                 </div>
               </div>
 
-              {/* Quick Prompts to Try */}
+              {/* Chat History Panel (Replaced Popular Lucknow Prompts) */}
               <div className="bg-card border-3 border-black p-5 rounded-sm shadow-[4px_4px_0px_#000]">
-                <div className="flex items-center gap-2 mb-4 font-black uppercase text-xs tracking-wider text-yellow-400">
-                  <MessageSquareText className="w-4 h-4" />
-                  <span>Popular Lucknow Prompts</span>
-                </div>
-                <div className="space-y-2.5">
-                  {[
-                    'Badminton court near Gomti Nagar under ₹400',
-                    'Football turf for 10 friends this Saturday',
-                    'Cheapest swimming pool near Hazratganj',
-                    'Traditional Akhara for wrestling practice',
-                    'Indoor cricket net with floodlights',
-                  ].map((promptText) => (
-                    <div
-                      key={promptText}
-                      className="text-xs font-semibold text-slate-300 bg-card-nested border border-black p-2.5 rounded-sm shadow-[1px_1px_0px_#000]"
-                    >
-                      &ldquo;{promptText}&rdquo;
-                    </div>
-                  ))}
-                </div>
-              </div>
+                {/* Header with New Chat Action */}
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-2 font-black uppercase text-xs tracking-wider text-yellow-400">
+                    <History className="w-4 h-4" />
+                    <span>Chat History</span>
+                  </div>
 
-              {/* Try Free Demo on Landing Page link */}
-              <div className="bg-card-nested border-2 border-black p-4 rounded-sm text-center">
-                <p className="text-xs text-slate-400 font-semibold mb-3">
-                  Want to compare with the landing page preview widget?
-                </p>
-                <Link
-                  href="/#ai-concierge"
-                  className="inline-flex items-center gap-2 text-xs font-black text-yellow-400 hover:text-yellow-300 uppercase tracking-wider transition-colors"
-                >
-                  <span>Go to Landing Page Demo</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                  <button
+                    onClick={handleStartNewChat}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase bg-yellow-400 text-black border-2 border-black rounded shadow-[2px_2px_0px_#000] hover:bg-yellow-300 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                    title="Start fresh conversation"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5px]" />
+                    <span>New Chat</span>
+                  </button>
+                </div>
+
+                {/* History List */}
+                {sessions.length === 0 ? (
+                  <div className="py-7 text-center text-slate-400 text-xs font-semibold bg-card-nested border border-black/40 rounded-sm p-4">
+                    <History className="w-7 h-7 mx-auto mb-2 text-slate-500 opacity-60" />
+                    <p className="text-primary font-bold">No Past Chats Yet</p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Type your first query in the concierge. Your sessions will be automatically saved here!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-hide">
+                      {sessions.map((session) => {
+                        const isActive = session.id === activeSessionId;
+                        return (
+                          <div
+                            key={session.id}
+                            onClick={() => handleSelectSession(session)}
+                            className={cn(
+                              "group text-xs border-2 border-black p-2.5 rounded-sm flex items-center justify-between gap-2 transition-all cursor-pointer",
+                              isActive
+                                ? "bg-yellow-400 text-black font-bold shadow-[2px_2px_0px_#000] translate-x-0.5 translate-y-0.5"
+                                : "bg-card-nested text-primary hover:bg-card-hover hover:border-yellow-400 shadow-[1px_1px_0px_#000]"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <MessageSquare className={cn("w-3.5 h-3.5 flex-shrink-0", isActive ? "text-black" : "text-yellow-400")} />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-semibold text-xs leading-tight">
+                                  {session.title}
+                                </div>
+                                <div className={cn("text-[10px] mt-0.5 font-mono", isActive ? "text-black/80" : "text-slate-400")}>
+                                  {formatSessionTime(session.updatedAt)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={(e) => handleDeleteSession(e, session.id)}
+                              className={cn(
+                                "p-1 rounded opacity-70 hover:opacity-100 hover:bg-black/10 transition-colors flex-shrink-0",
+                                isActive ? "text-black" : "text-slate-400 hover:text-rose-400"
+                              )}
+                              title="Delete chat"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Clear All History Button */}
+                    <div className="pt-2 border-t border-black/20 flex justify-end">
+                      <button
+                        onClick={handleClearAllHistory}
+                        className="text-[11px] text-slate-400 hover:text-rose-400 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Clear All History</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Right column: Full interactive AI Concierge */}
             <div className="lg:col-span-8">
-              <AIConciergePreview fullPage={true} />
+              <AIConciergePreview
+                key={activeSessionId}
+                fullPage={true}
+                initialMessages={activeSession?.messages}
+                onMessagesChange={handleMessagesChange}
+                onNewChat={handleStartNewChat}
+              />
             </div>
           </div>
         )}
@@ -228,4 +444,3 @@ export default function ConciergePage() {
     </div>
   );
 }
-

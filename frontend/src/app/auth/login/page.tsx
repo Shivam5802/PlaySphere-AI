@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Shield } from 'lucide-react';
 import { signInWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
+import { db } from '@/backend/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { useEffect } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,9 +32,35 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signInWithEmail(email, password);
+      const loggedUser = await signInWithEmail(email, password);
       toast.success('Signed in successfully! Redirecting...');
-      // Redirect will be handled by the useEffect watching isAdmin/isOwner
+
+      // Fast-path direct redirect
+      try {
+        const userDocSnap = await getDoc(doc(db, 'users', loggedUser.uid));
+        const role = userDocSnap.exists() ? userDocSnap.data()?.role : null;
+
+        const adminEmails = (
+          process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+          process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
+          ''
+        )
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean);
+
+        const isUserAdmin = adminEmails.includes(loggedUser.email?.toLowerCase() || '');
+
+        if (isUserAdmin) {
+          router.push('/admin');
+        } else if (role === 'owner') {
+          router.push('/owner');
+        } else {
+          router.push('/dashboard');
+        }
+      } catch {
+        router.push('/dashboard');
+      }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
       const code = firebaseError?.code || '';

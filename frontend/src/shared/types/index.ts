@@ -120,6 +120,16 @@ export interface UserProfile {
   phoneNumber?: string;              // Owner contact number
   contactPersons?: ContactPerson[];  // Owner's staff/managers
   createdAt?: Timestamp | Date;
+  // Extended Owner Business, Settlement & Operational Details:
+  businessName?: string;
+  gstNumber?: string;
+  businessAddress?: string;
+  alternatePhone?: string;
+  operatingHours?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  bankName?: string;
 }
 
 export interface ContactPerson {

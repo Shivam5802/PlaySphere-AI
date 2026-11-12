@@ -101,16 +101,53 @@ function MapSkeleton({ message = 'Loading realtime venue mapping and infrastruct
   );
 }
 
+// Sleek dark mode map style
+const darkMapStyles = [
+  { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
+  { featureType: 'poi.sports_complex', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#334155' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e293b' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
+];
+
+// Clean, high-contrast light mode map style
+const lightMapStyles = [
+  { elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#1e293b' }] },
+  { featureType: 'poi.sports_complex', elementType: 'geometry', stylers: [{ color: '#bbf7d0' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#dcfce7' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#fed7aa' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bae6fd' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#94a3b8' }] },
+];
+
 function ActiveVenueMap({ items }: VenueMapProps) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string,
   });
+
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+  const mapStyles = isLight ? lightMapStyles : darkMapStyles;
 
   const center = useMemo(() => ({ lat: 26.8467, lng: 80.9462 }), []);
   const [selectedItem, setSelectedItem] = useState<MapItem | null>(null);
   const { coordinates: userLocation } = useGeolocation();
   const mapRef = useRef<google.maps.Map | null>(null);
   const hasPannedToUser = useRef(false);
+
+  // Reactively reapply style options when theme toggles
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setOptions({ styles: isLight ? lightMapStyles : darkMapStyles });
+    }
+  }, [isLight]);
 
   useEffect(() => {
     if (userLocation && mapRef.current && !hasPannedToUser.current) {
@@ -208,44 +245,6 @@ function ActiveVenueMap({ items }: VenueMapProps) {
   if (!isLoaded) {
     return <MapSkeleton message="Connecting to Google Maps services..." />;
   }
-
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
-
-  // Sleek dark mode map style
-  const darkMapStyles = useMemo(() => [
-    { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
-    { featureType: 'poi.sports_complex', elementType: 'geometry', stylers: [{ color: '#064e3b' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#334155' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e293b' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
-  ], []);
-
-  // Clean, high-contrast light mode map style
-  const lightMapStyles = useMemo(() => [
-    { elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#1e293b' }] },
-    { featureType: 'poi.sports_complex', elementType: 'geometry', stylers: [{ color: '#bbf7d0' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#dcfce7' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#cbd5e1' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#fed7aa' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bae6fd' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#94a3b8' }] },
-  ], []);
-
-  const mapStyles = isLight ? lightMapStyles : darkMapStyles;
-
-  // Reactively reapply style options when theme toggles
-  useEffect(() => {
-    if (mapRef.current) {
-      mapRef.current.setOptions({ styles: isLight ? lightMapStyles : darkMapStyles });
-    }
-  }, [isLight, lightMapStyles, darkMapStyles]);
 
   const activeMarketplaceCount = items.filter(
     (item) => item.mapType === 'marketplace' && item.available

@@ -8,7 +8,17 @@ import {
   updateProfile,
   User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs
+} from 'firebase/firestore';
 import { auth, db, isFirebaseEnabled } from './config';
 import { UserProfile, UserRole } from '@/shared/types';
 
@@ -16,8 +26,10 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 function getAdminEmails(): string[] {
-  const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
-  return raw
+  const rawEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const rawEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || '';
+  const combined = `${rawEmails},${rawEmail}`;
+  return combined
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
@@ -111,9 +123,113 @@ export async function signInWithEmail(email: string, password: string) {
     return mockUser;
   }
 
-  const result = await signInWithEmailAndPassword(auth, email, password);
-  await ensureUserProfile(result.user);
-  return result.user;
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+  if (
+    adminEmail &&
+    adminPassword &&
+    email.trim().toLowerCase() === adminEmail &&
+    password === adminPassword
+  ) {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      await ensureUserProfile(result.user, 'Super Admin', 'player');
+      return result.user;
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string };
+      if (
+        firebaseError?.code === 'auth/invalid-credential' ||
+        firebaseError?.code === 'auth/user-not-found'
+      ) {
+        const newAdmin = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(newAdmin.user, { displayName: 'Super Admin' });
+        await ensureUserProfile(newAdmin.user, 'Super Admin', 'player');
+        return newAdmin.user;
+      }
+      throw err;
+    }
+  }
+
+  // 2. Standard Firebase Auth sign-in attempt
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    await ensureUserProfile(result.user);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('playsphere_session_user');
+    }
+    return result.user;
+  } catch (err: unknown) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 2b. Check typo in domain (e.g. gamil.com <-> gmail.com)
+    let alternateEmail: string | null = null;
+    if (normalizedEmail.includes('@gmail.com')) {
+      alternateEmail = normalizedEmail.replace('@gmail.com', '@gamil.com');
+    } else if (normalizedEmail.includes('@gamil.com')) {
+      alternateEmail = normalizedEmail.replace('@gamil.com', '@gmail.com');
+    }
+
+    if (alternateEmail) {
+      try {
+        const altResult = await signInWithEmailAndPassword(auth, alternateEmail, password);
+        await ensureUserProfile(altResult.user);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('playsphere_session_user');
+        }
+        return altResult.user;
+      } catch {}
+    }
+
+    // 3. Fallback: check if the Super Admin directly set a password override in Firestore
+    try {
+      const usersSnap = await getDocs(
+        query(collection(db, 'users'), where('email', '==', normalizedEmail))
+      );
+
+      let matchedDoc = !usersSnap.empty ? usersSnap.docs[0] : null;
+      if (!matchedDoc && alternateEmail) {
+        const altSnap = await getDocs(
+          query(collection(db, 'users'), where('email', '==', alternateEmail))
+        );
+        if (!altSnap.empty) {
+          matchedDoc = altSnap.docs[0];
+        }
+      }
+
+      if (matchedDoc) {
+        const userData = matchedDoc.data() as UserProfile & { adminPasswordOverride?: string };
+
+        if (userData.adminPasswordOverride && userData.adminPasswordOverride === password) {
+          const sessionUser = {
+            uid: userData.uid,
+            email: userData.email,
+            displayName: userData.displayName || 'User',
+            photoURL: userData.photoURL || null,
+            getIdToken: async () => 'admin-override-token',
+          } as unknown as User;
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(
+              'playsphere_session_user',
+              JSON.stringify({
+                uid: userData.uid,
+                email: userData.email,
+                displayName: userData.displayName || 'User',
+                photoURL: userData.photoURL || null,
+              })
+            );
+            document.cookie = `auth-token=override-token; path=/; max-age=${3600 * 24 * 7}; SameSite=Lax`;
+          }
+
+          return sessionUser;
+        }
+      }
+    } catch (checkErr) {
+      console.warn('Admin password override check failed:', checkErr);
+    }
+
+    throw err;
+  }
 }
 
 export async function signUpWithEmail(
@@ -153,11 +269,14 @@ export async function signUpWithEmail(
 }
 
 export async function logOut() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('playsphere_session_user');
+    localStorage.removeItem('mock_user');
+    localStorage.removeItem('mock_profile');
+    document.cookie = `auth-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  }
   if (!isFirebaseEnabled) {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('mock_user');
-      localStorage.removeItem('mock_profile');
-      document.cookie = `auth-token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
       window.location.reload();
     }
     return;
