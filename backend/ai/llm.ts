@@ -13,15 +13,23 @@ export interface LLMOptions {
  * Requires LLM_API_URL, LLM_API_KEY, and LLM_MODEL in environment variables.
  */
 export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Promise<string> {
-  const apiUrl = process.env.LLM_API_URL;
+  let apiUrl = (process.env.LLM_API_URL || 'https://api.groq.com/openai/v1').trim();
+  // Auto-correct common malformed googleapis URL
+  if (apiUrl === 'https://googleapis.com' || apiUrl === 'https://googleapis.com/') {
+    apiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
+  }
+  // Strip trailing /chat/completions, /models, or trailing slashes if accidentally appended
+  apiUrl = apiUrl.replace(/\/chat\/completions\/?$/i, '');
+  apiUrl = apiUrl.replace(/\/models\/?$/i, '');
+  apiUrl = apiUrl.replace(/\/+$/, '');
   const apiKey = process.env.LLM_API_KEY;
-  const defaultModel = process.env.LLM_MODEL || 'llama-3.1-8b-instant';
-  const fallbackModels = [
+  const defaultModel = process.env.LLM_MODEL || 'qwen/qwen3.8-27b';
+  const fallbackModels = Array.from(new Set([
     defaultModel,
-    'llama-3.3-70b-versatile',
-    'mixtral-8x7b-32768',
-    'gemma2-9b-it'
-  ];
+    'qwen/qwen3.8-27b',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b'
+  ]));
   
   const maxRetries = 4;
   let attempt = 0;
@@ -51,10 +59,17 @@ export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Pr
 
       clearTimeout(timeoutId);
 
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`LLM API Error (${response.status}):`, errorText);
+
+        // If model not found (404) or decommissioned/invalid (400), switch model immediately if available
+        const isModelIssue = response.status === 404 || (response.status === 400 && (errorText.includes('decommissioned') || errorText.includes('model')));
+        if (isModelIssue && currentModelIndex < fallbackModels.length - 1) {
+          currentModelIndex++;
+          console.warn(`[callLLM] Model "${currentModel}" failed with HTTP ${response.status}. Switching to fallback model: ${fallbackModels[currentModelIndex]}`);
+          continue;
+        }
 
         // Only retry on rate-limit (429) or server errors (5xx)
         const isRetryable = response.status === 429 || response.status >= 500;
@@ -76,7 +91,8 @@ export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Pr
       }
 
       const data = await response.json();
-      return data.choices[0].message.content;
+      const choice = data.choices?.[0]?.message;
+      return choice?.content || choice?.reasoning || '';
     } catch (error) {
       if (attempt >= maxRetries) {
         console.error('Error calling LLM after max retries:', error);
