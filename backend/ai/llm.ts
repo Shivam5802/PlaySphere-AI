@@ -14,22 +14,29 @@ export interface LLMOptions {
  */
 export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Promise<string> {
   let apiUrl = (process.env.LLM_API_URL || 'https://api.groq.com/openai/v1').trim();
-  // Auto-correct common malformed googleapis URL
-  if (apiUrl === 'https://googleapis.com' || apiUrl === 'https://googleapis.com/') {
-    apiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai';
-  }
-  // Strip trailing /chat/completions, /models, or trailing slashes if accidentally appended
-  apiUrl = apiUrl.replace(/\/chat\/completions\/?$/i, '');
-  apiUrl = apiUrl.replace(/\/models\/?$/i, '');
+  // Normalize URL by removing trailing slashes and unintended endpoints
   apiUrl = apiUrl.replace(/\/+$/, '');
+  if (apiUrl.endsWith('/models')) {
+    apiUrl = apiUrl.replace(/\/models$/, '');
+  } else if (apiUrl.endsWith('/chat/completions')) {
+    apiUrl = apiUrl.replace(/\/chat\/completions$/, '');
+  }
+
   const apiKey = process.env.LLM_API_KEY;
+  if (!apiKey) {
+    throw new Error('LLM_API_KEY is not configured in environment variables');
+  }
+
   const defaultModel = process.env.LLM_MODEL || 'qwen/qwen3.8-27b';
-  const fallbackModels = Array.from(new Set([
+  const candidateModels = [
     defaultModel,
     'qwen/qwen3.8-27b',
     'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b'
-  ]));
+    'openai/gpt-oss-20b',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant'
+  ];
+  const fallbackModels = Array.from(new Set(candidateModels.filter(Boolean)));
   
   const maxRetries = 4;
   let attempt = 0;
@@ -61,22 +68,14 @@ export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Pr
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`LLM API Error (${response.status}):`, errorText);
+        console.error(`LLM API Error (${response.status}) [model: ${currentModel}]:`, errorText);
 
-        // If model not found (404) or decommissioned/invalid (400), switch model immediately if available
-        const isModelIssue = response.status === 404 || (response.status === 400 && (errorText.includes('decommissioned') || errorText.includes('model')));
-        if (isModelIssue && currentModelIndex < fallbackModels.length - 1) {
-          currentModelIndex++;
-          console.warn(`[callLLM] Model "${currentModel}" failed with HTTP ${response.status}. Switching to fallback model: ${fallbackModels[currentModelIndex]}`);
-          continue;
-        }
-
-        // Only retry on rate-limit (429) or server errors (5xx)
-        const isRetryable = response.status === 429 || response.status >= 500;
+        // Retry on rate-limit (429) or model-not-found / server errors (5xx)
+        const isRetryable = response.status === 429 || response.status === 404 || response.status >= 500;
         if (isRetryable && attempt < maxRetries) {
-          if (response.status === 429 && currentModelIndex < fallbackModels.length - 1) {
+          if ((response.status === 429 || response.status === 404) && currentModelIndex < fallbackModels.length - 1) {
             currentModelIndex++;
-            console.warn(`[callLLM] HTTP 429. Switching to fallback model: ${fallbackModels[currentModelIndex]}`);
+            console.warn(`[callLLM] HTTP ${response.status}. Switching to fallback model: ${fallbackModels[currentModelIndex]}`);
             await new Promise((resolve) => setTimeout(resolve, 500));
             continue;
           }
@@ -91,8 +90,10 @@ export async function callLLM(messages: ChatMessage[], options?: LLMOptions): Pr
       }
 
       const data = await response.json();
-      const choice = data.choices?.[0]?.message;
-      return choice?.content || choice?.reasoning || '';
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error(`LLM API returned unexpected format: ${JSON.stringify(data).slice(0, 200)}`);
+      }
+      return data.choices[0].message.content || '';
     } catch (error) {
       if (attempt >= maxRetries) {
         console.error('Error calling LLM after max retries:', error);
