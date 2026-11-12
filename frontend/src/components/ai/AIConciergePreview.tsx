@@ -139,7 +139,7 @@ export function AIConciergePreview() {
       setMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
       console.error('Concierge request error:', err);
-      const errorMsg = 'AI Concierge temporarily unavailable.';
+      const errorMsg = (err instanceof Error && err.message) ? err.message : 'AI Concierge temporarily unavailable.';
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: errorMsg, timestamp: new Date(), isError: true },
