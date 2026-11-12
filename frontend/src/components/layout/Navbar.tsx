@@ -1,25 +1,164 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import { Menu, X, Zap, LogOut, LayoutDashboard, Building2, Shield, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useTheme } from '@/contexts/ThemeProvider';
 import { logOut } from '@/backend/firebase/auth';
 import { cn } from '@/shared/helpers/utils';
 
+const NAV_LINKS = [
+  { href: '/venues', label: 'Discover' },
+  { href: '/venues?tab=map', label: 'Map View' },
+  { href: '/#ai-concierge', label: 'AI Concierge' },
+];
+
+function NavLinksList({
+  mobile = false,
+  onClose,
+}: {
+  mobile?: boolean;
+  onClose?: () => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [currentHash, setCurrentHash] = useState('');
+
+  useEffect(() => {
+    const handleHash = () => {
+      setCurrentHash(window.location.hash);
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+
+    // If on homepage, observe the #ai-concierge section when scrolled into view
+    let observer: IntersectionObserver | null = null;
+    if (pathname === '/') {
+      const el = document.getElementById('ai-concierge');
+      if (el) {
+        observer = new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting) {
+              setCurrentHash('#ai-concierge');
+            } else if (window.location.hash !== '#ai-concierge') {
+              setCurrentHash('');
+            }
+          },
+          { threshold: 0.25 }
+        );
+        observer.observe(el);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      if (observer) observer.disconnect();
+    };
+  }, [pathname]);
+
+  const isLinkActive = (href: string) => {
+    if (href === '/venues?tab=map') {
+      return pathname === '/venues' && searchParams.get('tab') === 'map';
+    }
+    if (href === '/venues') {
+      return (
+        (pathname === '/venues' && searchParams.get('tab') !== 'map') ||
+        pathname.startsWith('/venues/')
+      );
+    }
+    if (href === '/#ai-concierge') {
+      return pathname === '/' && currentHash === '#ai-concierge';
+    }
+    return pathname === href;
+  };
+
+  return (
+    <>
+      {NAV_LINKS.map((link) => {
+        const isActive = isLinkActive(link.href);
+        if (mobile) {
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              role="menuitem"
+              onClick={() => {
+                if (link.href === '/#ai-concierge') {
+                  setCurrentHash('#ai-concierge');
+                }
+                onClose?.();
+              }}
+              className={cn(
+                'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150',
+                isActive
+                  ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                  : 'text-slate-400 border-transparent hover:text-yellow-400 hover:bg-card hover:border-yellow-400/30'
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        }
+
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={() => {
+              if (link.href === '/#ai-concierge') {
+                setCurrentHash('#ai-concierge');
+              }
+            }}
+            className={cn(
+              'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm',
+              isActive
+                ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                : 'text-slate-400 border-transparent hover:text-yellow-400 hover:border-yellow-400/40'
+            )}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
+function NavLinksFallback({ mobile = false }: { mobile?: boolean }) {
+  const pathname = usePathname();
+
+  return (
+    <>
+      {NAV_LINKS.map((link) => {
+        const isActive = pathname === '/venues' && link.href === '/venues';
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={cn(
+              mobile
+                ? 'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150 text-slate-400 border-transparent'
+                : 'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm',
+              isActive
+                ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                : 'text-slate-400 border-transparent hover:text-yellow-400'
+            )}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAdmin, isOwner } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const pathname = usePathname();
-
-  const navLinks = [
-    { href: '/venues', label: 'Discover' },
-    { href: '/venues?tab=map', label: 'Map View' },
-    { href: '/#ai-concierge', label: 'AI Concierge' },
-  ];
 
   // Role-aware dashboard link
   const dashboardHref = isAdmin ? '/admin' : isOwner ? '/owner' : '/dashboard';
@@ -64,23 +203,9 @@ export function Navbar() {
 
           {/* ── Desktop Nav Links ── */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm',
-                    isActive
-                      ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
-                      : 'text-slate-400 border-transparent hover:text-yellow-400 hover:border-yellow-400/40'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            <Suspense fallback={<NavLinksFallback />}>
+              <NavLinksList />
+            </Suspense>
           </div>
 
           {/* ── Desktop Auth Actions ── */}
@@ -159,25 +284,9 @@ export function Navbar() {
           role="menu"
         >
           <div className="px-4 py-4 space-y-2">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  role="menuitem"
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150',
-                    isActive
-                      ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
-                      : 'text-slate-400 border-transparent hover:text-yellow-400 hover:bg-card hover:border-yellow-400/30'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            <Suspense fallback={<NavLinksFallback mobile />}>
+              <NavLinksList mobile onClose={() => setIsOpen(false)} />
+            </Suspense>
 
             <div className="pt-3 border-t-2 border-black flex flex-col gap-2">
               <button

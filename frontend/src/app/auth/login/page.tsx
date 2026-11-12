@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Loader2, Shield } from 'lucide-react';
 import { signInWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useEffect } from 'react';
@@ -141,6 +141,28 @@ export default function LoginPage() {
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
+
+          {/* Super Admin Quick Access */}
+          {process.env.NEXT_PUBLIC_ADMIN_EMAILS && (
+            <div className="mt-6 pt-5 border-t-2 border-black/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">Super Admin Access</span>
+              </div>
+              <p className="text-slate-500 text-xs mb-3">
+                Admin accounts are determined by email. Sign in with your registered admin email above to access the{' '}
+                <Link href="/admin" className="text-purple-400 hover:text-purple-300 font-bold transition-colors">
+                  Admin Dashboard ↗
+                </Link>
+                .
+              </p>
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-md px-3 py-2 text-xs text-purple-300 font-mono">
+                Admin email set via{' '}
+                <span className="text-purple-200 font-bold">NEXT_PUBLIC_ADMIN_EMAILS</span>{' '}
+                in <span className="text-purple-200">.env.local</span>
+              </div>
+            </div>
+          )}
 
           <p className="text-center text-slate-400 text-sm mt-6 font-medium">
             New to PlaySphere?{' '}
