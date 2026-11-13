@@ -196,7 +196,7 @@ function VenuesContent() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search venues, areas, or sports..."
+              placeholder="Search venues, areas or sports . . ."
               value={filters.searchQuery || ''}
               onChange={(e) => setFilters((f) => ({ ...f, searchQuery: e.target.value }))}
               className="w-full bg-slate-900 border-2 border-black rounded-md pl-11 pr-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-0 shadow-[2px_2px_0px_#000] transition-all"

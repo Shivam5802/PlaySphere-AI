@@ -63,7 +63,6 @@ export default function LoginPage() {
       const loggedUser = await signInWithEmail(email, password);
       toast.success('Signed in successfully! Redirecting...');
 
-      // Fast-path direct redirect
       try {
         const userDocSnap = await getDoc(doc(db, 'users', loggedUser.uid));
         const role = userDocSnap.exists() ? userDocSnap.data()?.role : null;
@@ -126,14 +125,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen hero-gradient flex items-center justify-center px-4 pt-16">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Welcome back !!</h1>
           <p className="text-slate-400 text-sm mt-1 font-medium">Sign in to continue your sports journey</p>
         </div>
 
         <div className="bg-slate-900 border-3 border-black rounded-lg p-8 shadow-[8px_8px_0px_0px_#000]">
-          {/* Google Sign In */}
           <button
             onClick={handleGoogleLogin}
             disabled={googleLoading}
@@ -152,14 +149,12 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-0.5 bg-black" />
             <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">or sign in with email</span>
             <div className="flex-1 h-0.5 bg-black" />
           </div>
 
-          {/* Email Form */}
           <form onSubmit={handleEmailLogin} className="space-y-6">
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
@@ -191,6 +186,15 @@ export default function LoginPage() {
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
+            </div>
+
+            <div className="flex items-center justify-end -mt-2">
+              <Link
+                href="/contact"
+                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-wider underline decoration-black underline-offset-4 hover:-translate-y-0.5 active:translate-y-0 inline-block"
+              >
+                Forgot Password?
+              </Link>
             </div>
 
             <button type="submit" disabled={loading} className="w-full btn-primary justify-center py-3">

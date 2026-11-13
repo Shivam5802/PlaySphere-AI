@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Calendar, Clock, MapPin, Bookmark, BookmarkCheck, User, Bot, ArrowRight, X, Loader2,
-  Ticket, Users, Sparkles, Share2, Plus, Trash2, Save, Phone, Target
+  Ticket, Users, Sparkles, Share2, Plus, Trash2, Save, Phone, Target, Lock, Unlock,
+  Edit3, KeyRound, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useToast } from '@/contexts/ToastContext';
@@ -16,6 +17,7 @@ import { Booking, Venue, MatchLobby } from '@/shared/types';
 import { formatCurrency, formatDate, getSportEmoji, cn, getSportImage } from '@/shared/helpers/utils';
 import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
 import { getBookingLifecycle } from '@/shared/helpers/pricing';
+import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 
 type DashboardTab = 'bookings' | 'squads' | 'saved' | 'profile';
 
@@ -37,6 +39,8 @@ export default function DashboardPage() {
   // Profile Editor State
   const toast = useToast();
   const [profileSaving, setProfileSaving] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [profileForm, setProfileForm] = useState({
     displayName: '',
     phoneNumber: '',
@@ -66,6 +70,21 @@ export default function DashboardPage() {
     }
   }, [profile, user]);
 
+  const handleCancelEdit = () => {
+    if (profile) {
+      setProfileForm({
+        displayName: profile.displayName || user?.displayName || '',
+        phoneNumber: profile.phoneNumber || profile.phone || '',
+        gender: profile.gender || 'prefer_not_to_say',
+        primarySport: profile.primarySport || 'football',
+        skillLevel: profile.skillLevel || 'intermediate',
+        locality: profile.locality || '',
+        bio: profile.bio || '',
+      });
+    }
+    setIsEditingProfile(false);
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -82,6 +101,7 @@ export default function DashboardPage() {
         bio: profileForm.bio.trim(),
       });
       toast.success('Sports profile updated! Match lobbies will now prioritize your preferences.');
+      setIsEditingProfile(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
     } finally {
@@ -501,168 +521,236 @@ export default function DashboardPage() {
         )}
         {tab === 'profile' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left: Sports Profile Form */}
             <div className="lg:col-span-8 glass rounded-lg p-6 sm:p-8 border-2 border-black shadow-[4px_4px_0px_#000]">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-5 h-5 text-yellow-400" />
-                <h2 className="font-display text-2xl font-bold text-slate-200">
-                  Player Sports Profile & Match Preferences
-                </h2>
-              </div>
-              <p className="text-slate-400 text-xs sm:text-sm mb-6">
-                Tell us about your game. PlaySphere uses your sport, skill level, and Lucknow locality to prioritize open squad lobbies and match recommendations for you.
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-black/30">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-yellow-400" />
+                    <h2 className="font-display text-2xl font-bold text-slate-200">
+                      My Profile
+                    </h2>
+                  </div>
+                </div>
 
-              <form onSubmit={handleSaveProfile} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
-                      Full Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={profileForm.displayName}
-                      onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
-                      placeholder="e.g. Rahul Sharma"
-                      className="w-full px-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
-                    />
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(true)}
+                    className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-400 font-black text-xs uppercase tracking-wider rounded border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Change Password</span>
+                  </button>
+
+                  {!isEditingProfile && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(true)}
+                      className="px-3.5 py-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs uppercase tracking-wider rounded border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {!isEditingProfile ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Full Name</span>
+                      <p className="text-sm font-black text-foreground">{profile?.displayName || user?.displayName || 'Not Set'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">WhatsApp / Mobile Number</span>
+                      <p className="text-sm font-black text-emerald-400 font-mono flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                        {profile?.phoneNumber || profile?.phone || 'Not Set'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Gender</span>
+                      <p className="text-sm font-bold text-slate-200 capitalize">
+                        {profile?.gender ? profile.gender.replace(/_/g, ' ') : 'Prefer not to say'}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Primary Sport</span>
+                      <p className="text-sm font-black text-yellow-400 capitalize flex items-center gap-1.5">
+                        <span>{getSportEmoji(profile?.primarySport || 'football')}</span>
+                        {profile?.primarySport || 'Football'}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Skill Level</span>
+                      <span className="inline-block mt-0.5 px-2 py-0.5 text-xs font-black uppercase tracking-wider bg-cyan-400 text-black border border-black rounded shadow-[1px_1px_0px_#000]">
+                        {profile?.skillLevel || 'Intermediate'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Locality in Lucknow</span>
+                    <p className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                      {profile?.locality || 'Lucknow, Uttar Pradesh'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Player Bio & Availability</span>
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                      {profile?.bio || 'No personal bio added yet. Click "Edit Profile" to share your playing position, preferred match times and sport interests.'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveProfile} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.displayName}
+                        onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
+                        placeholder="e.g. Rahul Sharma"
+                        className="w-full px-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-300 mb-1.5 flex items-center justify-between">
+                        <span>WhatsApp / Mobile Number <span className="text-red-500">*</span></span>
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          required
+                          value={profileForm.phoneNumber}
+                          onChange={(e) => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
+                          placeholder="+91 98765 43210"
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
+                        Gender
+                      </label>
+                      <select
+                        value={profileForm.gender}
+                        onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value as any })}
+                        className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
+                        Primary Sport
+                      </label>
+                      <select
+                        value={profileForm.primarySport}
+                        onChange={(e) => setProfileForm({ ...profileForm, primarySport: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
+                      >
+                        <option value="football">Football ⚽</option>
+                        <option value="badminton">Badminton 🏸</option>
+                        <option value="cricket">Box Cricket 🏏</option>
+                        <option value="swimming">Swimming 🏊</option>
+                        <option value="tennis">Tennis / Pickleball 🎾</option>
+                        <option value="kabaddi">Kabaddi 🤼</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
+                        Skill Level
+                      </label>
+                      <select
+                        value={profileForm.skillLevel}
+                        onChange={(e) => setProfileForm({ ...profileForm, skillLevel: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
+                      >
+                        <option value="beginner">Beginner Friendly</option>
+                        <option value="intermediate">Intermediate Level</option>
+                        <option value="advanced">Competitive / Advanced</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-black uppercase text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span>WhatsApp / Mobile Number <span className="text-red-500">*</span></span>
+                      <span>Your Locality in Lucknow</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <MapPin className="w-4 h-4 text-yellow-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="tel"
-                        required
-                        value={profileForm.phoneNumber}
-                        onChange={(e) => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
-                        placeholder="+91 98765 43210"
+                        type="text"
+                        value={profileForm.locality}
+                        onChange={(e) => setProfileForm({ ...profileForm, locality: e.target.value })}
+                        placeholder="e.g. Gomti Nagar, Aliganj, Hazratganj, Indira Nagar..."
                         className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
                       />
                     </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
-                      Gender
-                    </label>
-                    <select
-                      value={profileForm.gender}
-                      onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value as any })}
-                      className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                      <option value="prefer_not_to_say">Prefer not to say</option>
-                    </select>
-                  </div>
 
                   <div>
                     <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
-                      Primary Sport
+                      Player Bio & Availability
                     </label>
-                    <select
-                      value={profileForm.primarySport}
-                      onChange={(e) => setProfileForm({ ...profileForm, primarySport: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
-                    >
-                      <option value="football">Football ⚽</option>
-                      <option value="badminton">Badminton 🏸</option>
-                      <option value="cricket">Box Cricket 🏏</option>
-                      <option value="swimming">Swimming 🏊</option>
-                      <option value="tennis">Tennis / Pickleball 🎾</option>
-                      <option value="kabaddi">Kabaddi 🤼</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
-                      Skill Level
-                    </label>
-                    <select
-                      value={profileForm.skillLevel}
-                      onChange={(e) => setProfileForm({ ...profileForm, skillLevel: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-slate-900 border-2 border-black rounded-md text-xs sm:text-sm font-bold text-slate-100 focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000] cursor-pointer"
-                    >
-                      <option value="beginner">Beginner Friendly</option>
-                      <option value="intermediate">Intermediate Level</option>
-                      <option value="advanced">Competitive / Advanced</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-black uppercase text-slate-300 mb-1.5 flex items-center justify-between">
-                    <span>Your Locality in Lucknow</span>
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-yellow-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={profileForm.locality}
-                      onChange={(e) => setProfileForm({ ...profileForm, locality: e.target.value })}
-                      placeholder="e.g. Gomti Nagar, Aliganj, Hazratganj, Indira Nagar..."
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
+                    <textarea
+                      rows={3}
+                      value={profileForm.bio}
+                      onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                      placeholder="e.g. Football striker/winger. Free on weekday nights after 7 PM and weekend mornings. Prefer turfs with floodlights."
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-medium focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
                     />
                   </div>
-                  {/* Quick Select Buttons */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {['Gomti Nagar', 'Aliganj', 'Hazratganj', 'Indira Nagar', 'Mahanagar', 'Ashiyana'].map((loc) => (
-                      <button
-                        type="button"
-                        key={loc}
-                        onClick={() => setProfileForm({ ...profileForm, locality: loc })}
-                        className={cn(
-                          'px-2 py-0.5 text-[10px] font-bold rounded border border-black transition-colors',
-                          profileForm.locality.toLowerCase().includes(loc.toLowerCase())
-                            ? 'bg-yellow-400 text-black'
-                            : 'bg-slate-900 text-slate-400 hover:text-white'
-                        )}
-                      >
-                        {loc}
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-black uppercase text-slate-300 mb-1.5">
-                    Player Bio & Availability
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={profileForm.bio}
-                    onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                    placeholder="e.g. Football striker/winger. Free on weekday nights after 7 PM and weekend mornings. Prefer turfs with floodlights."
-                    className="w-full px-3.5 py-2.5 bg-slate-900 border-2 border-black rounded-md text-sm text-slate-100 font-medium focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
-                  />
-                </div>
+                  <div className="pt-2 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={profileSaving}
+                      className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase text-xs rounded border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
 
-                <div className="pt-2 flex items-center justify-between">
-                  <div className="text-xs text-slate-400 font-medium">
-                    Changes take effect across Match Lobbies immediately.
+                    <button
+                      type="submit"
+                      disabled={profileSaving}
+                      className="btn-primary text-xs font-black uppercase px-6 py-2.5 shadow-[3px_3px_0px_#000] flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {profileSaving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      <span>{profileSaving ? 'Saving...' : 'Save Sports Profile'}</span>
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={profileSaving}
-                    className="btn-primary text-xs font-black uppercase px-6 py-2.5 shadow-[3px_3px_0px_#000] flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    {profileSaving ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    <span>{profileSaving ? 'Saving...' : 'Save Sports Profile'}</span>
-                  </button>
-                </div>
-              </form>
+                </form>
+              )}
             </div>
 
             <div className="lg:col-span-4 space-y-6">
@@ -717,34 +805,35 @@ export default function DashboardPage() {
                     <span className="text-slate-200 font-bold text-sm">{savedVenues.length}</span>
                   </div>
 
-                  <div className="flex justify-between items-center py-2.5">
+                  <div className="flex justify-between items-center py-2.5 border-b border-black/30">
                     <span className="text-slate-400 text-xs font-bold uppercase">Total Spent</span>
                     <span className="text-emerald-400 font-bold text-sm">
                       {formatCurrency(bookings.filter(b => (b.bookingStatus || b.status) !== 'cancelled').reduce((s, b) => s + (b.amount !== undefined ? b.amount : (b.price || 0)), 0))}
                     </span>
                   </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordModal(true)}
+                      className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-cyan-400 font-bold text-xs uppercase tracking-wider rounded border border-black shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Security & Password</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="bg-yellow-400/10 border-2 border-yellow-400/40 rounded-lg p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-5 h-5 text-yellow-400" />
-                  <h4 className="font-bold text-slate-200 text-sm">Find A Squad Active</h4>
-                </div>
-                <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-                  Join active match lobbies in Lucknow or host your own match with customized rules and player spots.
-                </p>
-                <Link
-                  href="/squads"
-                  className="btn-primary text-xs font-black uppercase px-4 py-2 shadow-[2px_2px_0px_#000] inline-flex items-center gap-1.5"
-                >
-                  <span>Explore Match Lobbies</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        userEmail={user?.email}
+      />
     </div>
   );
 }
