@@ -122,11 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } else {
             // The user profile doc does not exist yet. Attempt creation and resolve.
-            ensureUserProfile(firebaseUser, undefined, 'player').catch((err) => {
-              console.warn('Auto-creation of user profile failed:', err);
+            if (firebaseUser) {
+              ensureUserProfile(firebaseUser, undefined, 'player').catch((err) => {
+                console.warn('Auto-creation of user profile failed:', err);
+                setLoading(false);
+                hasResolved = true;
+              });
+            } else {
               setLoading(false);
               hasResolved = true;
-            });
+            }
             setProfile(null);
           }
         }, (err) => {
