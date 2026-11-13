@@ -88,7 +88,6 @@ export default function OwnerDashboardPage() {
   const [profileBankName, setProfileBankName] = useState('');
   const [profileAccountNumber, setProfileAccountNumber] = useState('');
   const [profileIfsc, setProfileIfsc] = useState('');
-  const [profilePhotoBase64, setProfilePhotoBase64] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -97,7 +96,8 @@ export default function OwnerDashboardPage() {
   const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
   const [isAddingContact, setIsAddingContact] = useState(false);
 
-  const isProfileIncomplete = !profile?.phoneNumber || !profile?.photoURL;
+  // Profile is complete if contact phone is provided
+  const isProfileIncomplete = !(profile?.phoneNumber || profile?.phone || profilePhone)?.trim();
 
   useEffect(() => {
     if (profile) {
@@ -115,7 +115,6 @@ export default function OwnerDashboardPage() {
       setProfileBankName(profile.bankName || '');
       setProfileAccountNumber(profile.accountNumber || '');
       setProfileIfsc(profile.ifscCode || '');
-      setProfilePhotoBase64(profile.photoURL || '');
     }
   }, [profile, user]);
 
@@ -133,7 +132,6 @@ export default function OwnerDashboardPage() {
       setProfileBankName(profile.bankName || '');
       setProfileAccountNumber(profile.accountNumber || '');
       setProfileIfsc(profile.ifscCode || '');
-      setProfilePhotoBase64(profile.photoURL || '');
     }
     setIsEditingProfile(false);
   };
@@ -143,19 +141,20 @@ export default function OwnerDashboardPage() {
     setProfileSaving(true);
     try {
       await updateUserProfile(user.uid, {
-        displayName: profileName,
-        phoneNumber: profilePhone,
-        alternatePhone: profileAltPhone,
-        businessName: profileBusinessName,
-        gstNumber: profileGst,
-        businessAddress: profileAddress,
-        operatingHours: profileHours,
-        upiId: profileUpi,
-        accountHolderName: profileAccountHolder,
-        bankName: profileBankName,
-        accountNumber: profileAccountNumber,
-        ifscCode: profileIfsc,
-        photoURL: profilePhotoBase64
+        displayName: profileName.trim(),
+        phoneNumber: profilePhone.trim(),
+        phone: profilePhone.trim(),
+        alternatePhone: profileAltPhone.trim(),
+        businessName: profileBusinessName.trim(),
+        gstNumber: profileGst.trim(),
+        businessAddress: profileAddress.trim(),
+        operatingHours: profileHours.trim(),
+        upiId: profileUpi.trim(),
+        accountHolderName: profileAccountHolder.trim(),
+        bankName: profileBankName.trim(),
+        accountNumber: profileAccountNumber.trim(),
+        ifscCode: profileIfsc.trim(),
+        ...(profile?.photoURL ? { photoURL: profile.photoURL } : {}),
       });
       showSuccess('👤 Profile & payout details saved!');
       toast.success('Owner profile & payout settings updated successfully!');
@@ -497,17 +496,20 @@ export default function OwnerDashboardPage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
               <div>
-                <h3 className="text-rose-300 font-bold text-sm">Action Required: Complete Your Profile</h3>
+                <h3 className="text-rose-300 font-bold text-sm">Action Required: Add Contact Number</h3>
                 <p className="text-rose-400/80 text-xs mt-1">
-                  Please add your mobile number and profile image to ensure players can contact you and to improve trust.
+                  Please add your WhatsApp or mobile number so players and ground managers can reach you.
                 </p>
               </div>
             </div>
             <button
-              onClick={() => setTab('profile')}
-              className="whitespace-nowrap bg-rose-500 hover:bg-rose-400 text-black font-bold text-xs px-4 py-2 rounded border-2 border-black transition-all shadow-[2px_2px_0px_#000] hover:-translate-y-0.5"
+              onClick={() => {
+                setTab('profile');
+                setIsEditingProfile(true);
+              }}
+              className="whitespace-nowrap bg-rose-500 hover:bg-rose-400 text-black font-bold text-xs px-4 py-2 rounded border-2 border-black transition-all shadow-[2px_2px_0px_#000] hover:-translate-y-0.5 cursor-pointer"
             >
-              Complete Profile Now
+              Add Contact Number
             </button>
           </div>
         )}
@@ -1179,20 +1181,9 @@ export default function OwnerDashboardPage() {
               <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
                   <div className="w-20 h-20 rounded-full border-3 border-black overflow-hidden bg-yellow-400 flex items-center justify-center shadow-[4px_4px_0px_#000] flex-shrink-0">
-                    {profilePhotoBase64 ? (
-                      <img
-                        src={profilePhotoBase64}
-                        alt={profileName || 'Owner'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '';
-                        }}
-                      />
-                    ) : (
-                      <span className="font-display font-black text-3xl text-black">
-                        {(profileName || profile?.displayName || 'V')[0]?.toUpperCase()}
-                      </span>
-                    )}
+                    <span className="font-display font-black text-3xl text-black">
+                      {(profileName || profile?.displayName || 'V')[0]?.toUpperCase()}
+                    </span>
                   </div>
 
                   <div>
@@ -1430,30 +1421,6 @@ export default function OwnerDashboardPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
-                  <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
-                    <Sparkles className="w-5 h-5 text-pink-400" />
-                    <h3 className="font-display font-black text-lg text-foreground uppercase tracking-wide">
-                      Arena Branding & Photo
-                    </h3>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                      Profile Photo / Brand Logo URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="e.g. https://images.unsplash.com/photo-example.jpg"
-                      value={profilePhotoBase64}
-                      onChange={(e) => setProfilePhotoBase64(e.target.value)}
-                      className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-pink-400 transition-all shadow-[2px_2px_0px_#000]"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">Provide a public direct link to your personal photo or arena logo.</p>
-                  </div>
-                </div>
-
                 <div className="flex items-center justify-between gap-3 pt-2">
                   <button
                     type="button"
