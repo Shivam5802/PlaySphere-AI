@@ -22,18 +22,14 @@
 </p>
 
 <p align="center">
-<a href="https://aiplaysphere.vercel.app/" target="_blank">
+<a href="https://play-sphereai.vercel.app" target="_blank">
 <img src="https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel Live Demo" />
-</a>
-<a href="https://aiplaysphere.netlify.app/" target="_blank">
-<img src="https://img.shields.io/badge/Live_Demo-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white" alt="Netlify Live Demo" />
 </a>
 </p>
 
 <p align="center">
-🌐 <strong>Vercel Link:</strong> <a href="https://play-sphereai.vercel.app/">https://aiplaysphere.vercel.app/</a> <br />
-<!-- 🌐 <strong>Netlify Link:</strong> <a href="https://aiplaysphere.netlify.app/">https://aiplaysphere.netlify.app/</a>
-</p> -->
+🌐 <strong>Vercel Link:</strong> <a href="https://play-sphereai.vercel.app/">https://play-sphereai.vercel.app</a> <br /> 
+</p>
 
 <p align="center">
 <a href="#-problem-statement">Problem</a> •
