@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { isSlotInPast } from '@/shared/helpers/pricing';
-import { Venue, Booking, UserProfile, VenueFilters, ApprovalStatus, Landmark, Infrastructure, OwnershipRequest } from '@/shared/types';
+import { Venue, Booking, UserProfile, VenueFilters, ApprovalStatus, Landmark, Infrastructure, OwnershipRequest, MatchLobby, LobbyPlayer } from '@/shared/types';
 import { generateTicketId } from '@/shared/helpers/ticket';
 
 /** Helper to convert Firestore Timestamps to plain JS objects recursively,
@@ -255,7 +255,8 @@ export async function rejectPayment(bookingId: string): Promise<void> {
 }
 
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), data);
+  const userRef = doc(db, 'users', uid);
+  await setDoc(userRef, data, { merge: true });
 }
 
 export async function togglePlayerStatus(uid: string, isActive: boolean): Promise<void> {
@@ -345,19 +346,52 @@ export async function getAllBookings(): Promise<Booking[]> {
 
 export async function toggleSavedVenue(userId: string, venueId: string, isSaved: boolean): Promise<void> {
   const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
+  await setDoc(userRef, {
     savedVenues: isSaved ? arrayRemove(venueId) : arrayUnion(venueId),
-  });
+  }, { merge: true });
 }
 
-/** Fetch venue documents by array of IDs (for saved venues) */
+/** Fetch venue documents by array of IDs (supports both private venues and infrastructure) */
 export async function getVenuesByIds(ids: string[]): Promise<Venue[]> {
-  if (ids.length === 0) return [];
+  if (!ids || ids.length === 0) return [];
   const results: Venue[] = [];
   await Promise.all(
     ids.map(async (id) => {
-      const snap = await getDoc(doc(db, 'venues', id));
-      if (snap.exists()) results.push({ id: snap.id, ...snap.data() } as Venue);
+      try {
+        const snap = await getDoc(doc(db, 'venues', id));
+        if (snap.exists()) {
+          results.push({ id: snap.id, ...snap.data() } as Venue);
+          return;
+        }
+
+        // Also check infrastructure collection
+        const infraSnap = await getDoc(doc(db, 'infrastructure', id));
+        if (infraSnap.exists()) {
+          const infraData = infraSnap.data();
+          results.push({
+            id: infraSnap.id,
+            name: infraData.name,
+            sport: infraData.sport,
+            area: infraData.area || infraData.address || 'Lucknow',
+            address: infraData.address || infraData.area || 'Lucknow',
+            price: 0,
+            rating: infraData.rating || 4.5,
+            reviewCount: infraData.reviewCount || 0,
+            imageUrl: infraData.imageUrl || '',
+            category: 'infrastructure',
+            available: true,
+            approvalStatus: 'approved',
+            ownerId: 'system',
+            source: 'seed',
+            amenities: infraData.amenities || [],
+            skillLevel: 'all',
+            timings: { open: '06:00', close: '21:00' },
+            description: infraData.description || '',
+          } as Venue);
+        }
+      } catch (err) {
+        console.error('Error fetching venue by id in getVenuesByIds:', id, err);
+      }
     })
   );
   return results;
@@ -1133,6 +1167,213 @@ export async function deleteContactInquiry(id: string): Promise<void> {
   const docRef = doc(db, 'contact_inquiries', id);
   await deleteDoc(docRef);
 }
+
+// ─────────────────────────────────────────────────────────────
+// SQUAD MATCHMAKING & OPEN LOBBIES (COMMUNITY FEATURE)
+// ─────────────────────────────────────────────────────────────
+
+export function subscribeMatchLobbies(callback: (lobbies: MatchLobby[]) => void): Unsubscribe {
+  const colRef = collection(db, 'match_lobbies');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const lobbies = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...serializeData(d.data()),
+      })) as MatchLobby[];
+
+      lobbies.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      callback(lobbies);
+    },
+    (err) => {
+      console.error('Error subscribing to match lobbies:', err);
+      callback([]);
+    }
+  );
+}
+
+export async function createMatchLobby(
+  lobbyData: Omit<MatchLobby, 'id' | 'createdAt' | 'filledSpots' | 'players' | 'status'> & {
+    initialPlayer?: LobbyPlayer;
+  }
+): Promise<string> {
+  const colRef = collection(db, 'match_lobbies');
+  
+  const rawPlayer = lobbyData.initialPlayer || {
+    userId: lobbyData.hostId,
+    name: lobbyData.hostName,
+    phone: lobbyData.hostPhone || '',
+    joinedAt: new Date().toISOString(),
+  };
+
+  const initialPlayer: LobbyPlayer = {
+    userId: String(rawPlayer.userId || lobbyData.hostId),
+    name: String(rawPlayer.name || lobbyData.hostName || 'Host'),
+    phone: String(rawPlayer.phone || ''),
+    joinedAt: String(rawPlayer.joinedAt || new Date().toISOString()),
+    status: 'confirmed',
+    role: 'host',
+  };
+
+  const newDocData: Record<string, any> = {
+    title: String(lobbyData.title || ''),
+    sport: String(lobbyData.sport || 'football'),
+    venueId: String(lobbyData.venueId || ''),
+    venueName: String(lobbyData.venueName || ''),
+    location: String(lobbyData.location || 'Lucknow'),
+    date: String(lobbyData.date || ''),
+    time: String(lobbyData.time || ''),
+    totalSpots: Number(lobbyData.totalSpots) || 10,
+    filledSpots: 1,
+    pricePerPlayer: Number(lobbyData.pricePerPlayer || 0),
+    skillLevel: String(lobbyData.skillLevel || 'all'),
+    hostId: String(lobbyData.hostId),
+    hostName: String(lobbyData.hostName || 'Host'),
+    hostPhone: String(lobbyData.hostPhone || ''),
+    hostEmail: String(lobbyData.hostEmail || ''),
+    players: [initialPlayer],
+    status: Number(lobbyData.totalSpots) <= 1 ? 'full' : 'open',
+    notes: String(lobbyData.notes || ''),
+    createdAt: serverTimestamp(),
+  };
+
+  Object.keys(newDocData).forEach((k) => {
+    if (newDocData[k] === undefined) {
+      delete newDocData[k];
+    }
+  });
+
+  const docRef = await addDoc(colRef, newDocData);
+  return docRef.id;
+}
+
+export async function joinMatchLobby(lobbyId: string, player: LobbyPlayer): Promise<void> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    throw new Error('Match lobby not found');
+  }
+
+  const data = snap.data() as MatchLobby;
+  const currentPlayers = data.players || [];
+
+  // Check if player already in lobby
+  if (currentPlayers.some((p) => p.userId === player.userId)) {
+    throw new Error('You have already sent a request or joined this squad');
+  }
+
+  const confirmedCount = currentPlayers.filter((p) => p.status === 'confirmed').length;
+  if (confirmedCount >= data.totalSpots) {
+    throw new Error('This squad is already full');
+  }
+
+  const cleanPlayer: LobbyPlayer = {
+    userId: String(player.userId),
+    name: String(player.name || 'Player'),
+    phone: String(player.phone || ''),
+    joinedAt: String(player.joinedAt || new Date().toISOString()),
+    status: 'pending', 
+    role: 'player',
+    skillLevel: String(player.skillLevel || ''),
+    note: String(player.note || ''),
+  };
+
+  const updatedPlayers = [...currentPlayers, cleanPlayer];
+
+  await updateDoc(docRef, {
+    players: updatedPlayers,
+  });
+}
+
+export async function confirmPlayerInLobby(lobbyId: string, playerId: string): Promise<void> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data() as MatchLobby;
+  const currentPlayers = data.players || [];
+  const updatedPlayers = currentPlayers.map((p) =>
+    p.userId === playerId ? { ...p, status: 'confirmed' as const } : p
+  );
+  const confirmedCount = updatedPlayers.filter((p) => p.status === 'confirmed').length;
+  const newStatus = confirmedCount >= data.totalSpots ? 'full' : 'open';
+
+  await updateDoc(docRef, {
+    players: updatedPlayers,
+    filledSpots: confirmedCount,
+    status: newStatus,
+  });
+}
+
+/** Host declines a join request */
+export async function declinePlayerInLobby(lobbyId: string, playerId: string): Promise<void> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data() as MatchLobby;
+  const currentPlayers = data.players || [];
+  const updatedPlayers = currentPlayers.filter((p) => p.userId !== playerId);
+  const confirmedCount = updatedPlayers.filter((p) => p.status === 'confirmed').length;
+
+  await updateDoc(docRef, {
+    players: updatedPlayers,
+    filledSpots: confirmedCount,
+    status: confirmedCount >= data.totalSpots ? 'full' : 'open',
+  });
+}
+
+/** Host removes a player from squad */
+export async function removePlayerFromLobby(lobbyId: string, playerId: string): Promise<void> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data() as MatchLobby;
+  const currentPlayers = data.players || [];
+  const updatedPlayers = currentPlayers.filter((p) => p.userId !== playerId);
+  const confirmedCount = updatedPlayers.filter((p) => p.status === 'confirmed').length;
+
+  await updateDoc(docRef, {
+    players: updatedPlayers,
+    filledSpots: confirmedCount,
+    status: 'open',
+  });
+}
+
+export async function leaveMatchLobby(lobbyId: string, userId: string): Promise<{ cancelled: boolean }> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return { cancelled: false };
+
+  const data = snap.data() as MatchLobby;
+  if (data.hostId === userId) {
+    await deleteDoc(docRef);
+    return { cancelled: true };
+  }
+
+  const currentPlayers = data.players || [];
+  const updatedPlayers = currentPlayers.filter((p) => p.userId !== userId);
+  const confirmedCount = updatedPlayers.filter((p) => p.status === 'confirmed').length;
+
+  await updateDoc(docRef, {
+    players: updatedPlayers,
+    filledSpots: confirmedCount,
+    status: 'open',
+  });
+  return { cancelled: false };
+}
+
+export async function deleteMatchLobby(lobbyId: string): Promise<void> {
+  const docRef = doc(db, 'match_lobbies', lobbyId);
+  await deleteDoc(docRef);
+}
+
 
 
 

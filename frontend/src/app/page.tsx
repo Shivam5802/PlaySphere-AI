@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Bot, MapPin, Star, Zap, ChevronRight, Shield, TrendingUp } from 'lucide-react';
+import { ArrowRight, Bot, MapPin, Star, Zap, ChevronRight, Shield, TrendingUp, Users } from 'lucide-react';
 import { SPORTS_LIST } from '@/shared/constants/venues';
 import { getApprovedVenues } from '@/backend/firebase/firestore';
 import { VenueCard } from '@/components/venue/VenueCard';
@@ -77,10 +77,13 @@ export default async function HomePage() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <Link href="/venues" className="btn-primary text-base px-10 py-4 animate-pulse-yellow">
+            <Link href="/venues" className="btn-primary text-base px-9 py-4 animate-pulse-yellow">
               Explore Venues <ArrowRight className="w-5 h-5 stroke-[2.5px]" />
             </Link>
-            <Link href="/#ai-concierge" className="btn-secondary text-base px-10 py-4">
+            <Link href="/squads" className="btn-secondary text-base px-8 py-4 border-2 border-black bg-cyan-400 text-black hover:bg-cyan-300 shadow-[4px_4px_0px_#000]">
+              <Users className="w-5 h-5" /> Find A Squad
+            </Link>
+            <Link href="/#ai-concierge" className="btn-secondary text-base px-8 py-4">
               <Bot className="w-5 h-5" /> Ask AI Concierge
             </Link>
           </div>

@@ -6,6 +6,7 @@ import { Venue } from '@/shared/types';
 import { cn, formatCurrency, getSportEmoji, getSportColor, getSkillBadgeColor, getSportImage } from '@/shared/helpers/utils';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
 import { toggleSavedVenue } from '@/backend/firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -16,6 +17,7 @@ interface VenueCardProps {
 
 export function VenueCard({ venue, className }: VenueCardProps) {
   const { user, profile } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
@@ -36,15 +38,21 @@ export function VenueCard({ venue, className }: VenueCardProps) {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
+      toast.info('Please log in to bookmark venues!');
       router.push('/auth/login');
       return;
     }
     setSaving(true);
     try {
       await toggleSavedVenue(user.uid, venue.id, isSaved);
-    } catch (err) {
+      if (isSaved) {
+        toast.info(`Removed "${venue.name}" from saved venues`);
+      } else {
+        toast.success(`Saved "${venue.name}" to your favorites! ❤️`);
+      }
+    } catch (err: any) {
       console.error('Error toggling saved venue:', err);
-      alert('Unable to save venue. Please try again.');
+      toast.error('Unable to save venue. Please try again.');
     } finally {
       setSaving(false);
     }

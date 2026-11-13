@@ -63,6 +63,7 @@ export function Footer() {
               {[
                 { label: 'Discover Venues', href: '/venues' },
                 { label: 'Map View', href: '/venues?tab=map' },
+                { label: 'Find a Squad', href: '/squads' },
                 { label: 'AI Concierge', href: '/concierge' },
                 { label: 'About Us', href: '/about' },
                 { label: 'Contact Us', href: '/#contact-us' },

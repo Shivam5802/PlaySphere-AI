@@ -117,7 +117,14 @@ export interface UserProfile {
   isActive?: boolean;                // Account activation status (mainly for players)
   upiId?: string;                    // Phase 3: owner UPI ID
   qrCodeUrl?: string;                // Phase 3: owner QR code URL
-  phoneNumber?: string;              // Owner contact number
+  phoneNumber?: string;              // Player/Owner contact number
+  phone?: string;                    // Alias for phoneNumber
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  primarySport?: Sport | 'cricket' | 'tennis' | 'kabaddi' | 'all';
+  favoriteSports?: string[];
+  skillLevel?: SkillLevel;
+  locality?: string;
+  bio?: string;
   contactPersons?: ContactPerson[];  // Owner's staff/managers
   createdAt?: Timestamp | Date;
   // Extended Owner Business, Settlement & Operational Details:
@@ -221,5 +228,39 @@ export interface ConciergeCard {
   venueType: 'marketplace' | 'infrastructure';
   venueCode?: string;
   action: 'book' | 'view' | 'verify';
+}
+
+export interface LobbyPlayer {
+  userId: string;
+  name: string;
+  phone?: string;
+  joinedAt: any;
+  status?: 'pending' | 'confirmed' | 'declined';
+  role?: 'host' | 'player';
+  skillLevel?: string;
+  note?: string;
+}
+
+export interface MatchLobby {
+  id: string;
+  title: string;
+  sport: Sport | 'cricket' | 'tennis';
+  venueId?: string;
+  venueName: string;
+  location: string;
+  date: string;
+  time: string;
+  totalSpots: number;
+  filledSpots: number;
+  pricePerPlayer: number;
+  skillLevel: SkillLevel;
+  hostId: string;
+  hostName: string;
+  hostPhone?: string;
+  hostEmail?: string;
+  players: LobbyPlayer[];
+  status: 'open' | 'full' | 'completed' | 'cancelled';
+  notes?: string;
+  createdAt: any;
 }
 

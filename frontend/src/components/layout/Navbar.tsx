@@ -12,6 +12,7 @@ import { cn } from '@/shared/helpers/utils';
 const NAV_LINKS = [
   { href: '/venues', label: 'Discover' },
   { href: '/venues?tab=map', label: 'Map View' },
+  { href: '/squads', label: 'Find Squad' },
   { href: '/concierge', label: 'AI Concierge' },
   { href: '/about', label: 'About Us' },
 ];
@@ -32,6 +33,9 @@ function NavLinksList({
     }
     if (href === '/venues') {
       return pathname === '/venues' && searchParams.get('tab') !== 'map';
+    }
+    if (href === '/squads') {
+      return pathname === '/squads';
     }
     if (href === '/concierge') {
       return pathname === '/concierge';
