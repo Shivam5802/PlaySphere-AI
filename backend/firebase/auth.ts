@@ -49,7 +49,11 @@ export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     // Google sign-in always defaults to 'player' role (unless email is whitelisted admin)
-    await ensureUserProfile(result.user, undefined, 'player');
+    try {
+      await ensureUserProfile(result.user, undefined, 'player');
+    } catch (profileErr) {
+      console.warn('User profile sync skipped/failed during Google sign-in:', profileErr);
+    }
     return result.user;
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked') {
@@ -193,11 +197,10 @@ export async function ensureUserProfile(user: User, displayName?: string, role?:
     const updates: Partial<UserProfile> = {};
 
     // 1. If role is missing, or is 'user', map it to 'player' (or defaultRole/admin)
-    if (!data.role || data.role === 'user') {
-      updates.role = defaultRole;
-    } else if (isAdmin && data.role !== 'admin') {
-      // If user is whitelisted admin but role in database is different, update to admin
+    if (isAdmin && data.role !== 'admin') {
       updates.role = 'admin';
+    } else if (!data.role && isAdmin) {
+      updates.role = defaultRole;
     }
 
     // 2. If displayName is missing, fill it
