@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(null);
             setLoading(false);
           }
-        }, 15000);
+        }, 4000);
 
         // Subscribe to real-time updates for user profile doc
         unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
@@ -99,9 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               timeoutId = null;
             }
           } else {
-            // The user profile doc does not exist yet (could be signup process in progress).
-            // Set profile to null but DO NOT set loading to false yet. Let the profile creation
-            // complete and trigger the next snapshot callback.
+            // The user profile doc does not exist yet. Attempt creation and resolve.
+            ensureUserProfile(firebaseUser, undefined, 'player').catch((err) => {
+              console.warn('Auto-creation of user profile failed:', err);
+              setLoading(false);
+              hasResolved = true;
+            });
             setProfile(null);
           }
         }, (err) => {
@@ -147,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const adminEmails = getAdminEmails();
   const userEmail = user?.email?.toLowerCase() || '';
 
-  const isAdmin = adminEmails.length > 0 && adminEmails.includes(userEmail);
+  const isAdmin = (adminEmails.length > 0 && adminEmails.includes(userEmail)) || profile?.role === 'admin';
   const isOwner = profile?.role === 'owner' && !isAdmin;
   const isPlayer = !isOwner && !isAdmin && !!user;
   const isApprovedOwner = isOwner && profile?.approvalStatus === 'approved';

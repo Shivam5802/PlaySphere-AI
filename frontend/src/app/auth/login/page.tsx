@@ -8,6 +8,34 @@ import { signInWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useEffect } from 'react';
 
+function formatAuthError(err: any): string {
+  if (!err) return 'Authentication failed. Please try again.';
+  const code = err.code || '';
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+    return `Domain "${host}" is not authorized in Firebase Console. If using http://127.0.0.1:3000, please open http://localhost:3000 instead, or add "${host}" to Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+  }
+  if (code === 'auth/popup-blocked') {
+    return 'Sign-in popup was blocked by your browser. Please allow popups or try again.';
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Sign-in window was closed before completing.';
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return 'Another sign-in request is already in progress.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google Sign-In is not enabled in Firebase Console. Enable Google under Authentication -> Sign-in method.';
+  }
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return 'Invalid email or password. Please try again.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network request failed. Please check your internet connection.';
+  }
+  return err.message ? `${err.message} (${code || 'error'})` : 'Authentication failed. Please try again.';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -45,11 +73,15 @@ export default function LoginPage() {
     setGoogleLoading(true);
     setError('');
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
+      if (!user) {
+        // Redirect initiated or popup closed
+        return;
+      }
       // Redirect handled by useEffect
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Google login error:', err);
-      setError('Google sign-in failed. Please try again.');
+      setError(formatAuthError(err));
     } finally {
       setGoogleLoading(false);
     }
