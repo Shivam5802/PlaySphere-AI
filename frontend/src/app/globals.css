@@ -88,6 +88,7 @@
   input[type="date"],
   input[type="url"],
   input[type="number"],
+  input[type="tel"],
   select,
   textarea {
     background-color: var(--input-bg) !important;
@@ -110,6 +111,7 @@
   input[type="date"]:focus,
   input[type="url"]:focus,
   input[type="number"]:focus,
+  input[type="tel"]:focus,
   select:focus,
   textarea:focus {
     border-color: #facc15 !important;

@@ -1068,6 +1068,73 @@ export async function adminChangeUserPassword(uid: string, newPassword: string):
   });
 }
 
+/**
+ * Submits a contact inquiry from the landing page contact form.
+ */
+export interface ContactInquiry {
+  name: string;
+  email: string;
+  phone?: string;
+  category: string;
+  message: string;
+}
+
+export interface SavedContactInquiry extends ContactInquiry {
+  id: string;
+  status: 'new' | 'reviewed' | 'resolved';
+  createdAt?: any;
+}
+
+export async function submitContactInquiry(inquiry: ContactInquiry): Promise<string> {
+  const colRef = collection(db, 'contact_inquiries');
+  const docRef = await addDoc(colRef, {
+    ...inquiry,
+    status: 'new',
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+export async function getAllContactInquiries(): Promise<SavedContactInquiry[]> {
+  try {
+    const colRef = collection(db, 'contact_inquiries');
+    const q = query(colRef, orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      id: d.id,
+      ...serializeData(d.data()),
+    })) as SavedContactInquiry[];
+  } catch (err) {
+    // Fallback if index on createdAt is pending
+    try {
+      const colRef = collection(db, 'contact_inquiries');
+      const snap = await getDocs(colRef);
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...serializeData(d.data()),
+      })) as SavedContactInquiry[];
+      return list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+    } catch {
+      return [];
+    }
+  }
+}
+
+export async function updateContactInquiryStatus(id: string, status: 'new' | 'reviewed' | 'resolved'): Promise<void> {
+  const docRef = doc(db, 'contact_inquiries', id);
+  await updateDoc(docRef, { status });
+}
+
+export async function deleteContactInquiry(id: string): Promise<void> {
+  const docRef = doc(db, 'contact_inquiries', id);
+  await deleteDoc(docRef);
+}
+
+
 
 
 

@@ -96,7 +96,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     skills: ['React 19', 'Tailwind CSS', 'Map Integration', 'Responsive Design', 'Neo-Brutalism', 'Component Architecture'],
     github: 'https://github.com/shivam5802',
     linkedin: 'https://linkedin.com/in/shivam5802',
-    email: 'shivam5802@gmail.com',
+    email: 'sjais9827@gmail.com',
   },
   {
     id: 'vikas',
@@ -115,7 +115,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     skills: ['Groq / LLaMA-3.1', 'NLP Intent Parsing', 'Dynamic Pricing Engine', 'Recommendation Agent', 'Demand Prediction', 'Python / ML'],
     github: 'https://github.com/devvikax',
     linkedin: 'https://linkedin.com/in/devvikax',
-    email: 'devvikax@gmail.com',
+    email: 'vikasp.tera@gmail.com',
   },
 ];
 
@@ -281,6 +281,8 @@ export default function AboutPage() {
 
                       <a
                         href={`mailto:${member.email}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 border-2 border-black rounded-sm text-xs font-black text-black shadow-[2px_2px_0px_#000] transition-all cursor-pointer"
                       >

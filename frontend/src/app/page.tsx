@@ -5,6 +5,7 @@ import { getApprovedVenues } from '@/backend/firebase/firestore';
 import { VenueCard } from '@/components/venue/VenueCard';
 import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
 import { VenueDiscoveryInsights } from '@/components/ai/VenueDiscoveryInsights';
+import { ContactSection } from '@/components/home/ContactSection';
 import { serializeFirestoreData } from '@/shared/helpers/utils';
 import { Venue } from '@/shared/types';
 
@@ -484,7 +485,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA SECTION ───────────────────────────────────────────── */}
+      {/* CONTACT US SECTION */}
+      <ContactSection />
+
+      {/* CTA SECTION */}
       <section className="py-24 px-4 bg-card-hover">
         <div className="max-w-3xl mx-auto text-center">
           <div className="bg-card border-3 border-black rounded-sm p-12 shadow-[10px_10px_0px_#000] stripe-yellow relative overflow-hidden">
