@@ -1,4 +1,4 @@
-import { Infrastructure } from '../../shared/types';
+import { Infrastructure } from '@/shared/types';
 
 export interface OSMRawElement {
   type: 'node' | 'way' | 'relation';

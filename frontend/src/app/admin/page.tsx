@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
   Shield, Building2, Calendar, Clock, CheckCircle, XCircle,
-  Loader2, Ticket, User, ChevronRight, BarChart3, AlertCircle
+  Loader2, Ticket, User, ChevronRight, BarChart3, AlertCircle,
+  Trash2, KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import {
   updateOwnerApproval,
@@ -15,8 +16,12 @@ import {
   subscribeOwnershipRequests,
   subscribeInfrastructure,
   toggleStaffStatus,
-  togglePlayerStatus
+  togglePlayerStatus,
+  permanentlyDeleteUser,
+  adminChangeUserPassword
 } from '@/backend/firebase/firestore';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { useToast } from '@/contexts/ToastContext';
 import { UserProfile, Venue, Booking, Infrastructure, OwnershipRequest } from '@/shared/types';
 import { formatCurrency, formatDate, getSportEmoji, cn } from '@/shared/helpers/utils';
 import { auth, db } from '@/backend/firebase/config';
@@ -54,6 +59,7 @@ function getPercentageClass(pct: number) {
 type AdminTab = 'overview' | 'approvals' | 'players' | 'owners' | 'venues' | 'bookings' | 'infrastructure';
 
 export default function AdminDashboardPage() {
+  const toast = useToast();
   const [tab, setTab] = useState<AdminTab>('overview');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -68,6 +74,14 @@ export default function AdminDashboardPage() {
   const [discoveryLogs, setDiscoveryLogs] = useState<string[]>([]);
   const [scanState, setScanState] = useState<{ isRunning: boolean; lastScanAt: any } | null>(null);
   const [cooldownLeft, setCooldownLeft] = useState<number>(0);
+  const [deleteTarget, setDeleteTarget] = useState<{ uid: string; email: string; name: string; role: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<{ uid: string; email: string; name: string; role: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [scanResult, setScanResult] = useState<{
     osmFetched: number;
     normalized: number;
@@ -231,6 +245,69 @@ export default function AdminDashboardPage() {
       console.error('Error rejecting ownership request:', err);
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleSendPasswordReset = async (email: string) => {
+    if (!email) {
+      toast.error('User does not have a valid email address.');
+      return;
+    }
+    setResettingEmail(email);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success(`Password reset email sent to ${email}!`);
+    } catch (err: unknown) {
+      const fbErr = err as { code?: string; message?: string };
+      toast.error(fbErr?.message || 'Failed to send password reset email.');
+    } finally {
+      setResettingEmail(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await permanentlyDeleteUser(deleteTarget.uid);
+      toast.success(`Account (${deleteTarget.email}) has been permanently deleted.`);
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      console.error('Failed to delete user:', err);
+      toast.error('Failed to permanently delete user.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleOpenPasswordModal = (target: { uid: string; email: string; name: string; role: string }) => {
+    setPasswordTarget(target);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPassword(false);
+  };
+
+  const handleSaveNewPassword = async () => {
+    if (!passwordTarget) return;
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match. Please re-check.');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await adminChangeUserPassword(passwordTarget.uid, newPassword);
+      toast.success(`Password for ${passwordTarget.name} (${passwordTarget.email}) updated successfully!`);
+      setPasswordTarget(null);
+    } catch (err: unknown) {
+      console.error('Failed to update password:', err);
+      toast.error('Failed to update password.');
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -663,12 +740,21 @@ export default function AdminDashboardPage() {
                             <div>Saved Venues</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <button
+                            onClick={() => handleOpenPasswordModal({ uid: p.uid, email: p.email, name: p.displayName || 'Player', role: 'player' })}
+                            className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Directly set new password for player"
+                          >
+                            <KeyRound className="w-3 h-3" />
+                            <span>Change Password</span>
+                          </button>
+
                           <button
                             onClick={() => handleTogglePlayer(p.uid, isActive)}
                             disabled={approvingId === `player-${p.uid}`}
                             className={cn(
-                              'px-3 py-1.5 rounded text-xs font-bold border transition-colors flex items-center gap-1 disabled:opacity-50',
+                              'px-2.5 py-1.5 rounded text-xs font-bold border transition-colors flex items-center gap-1 disabled:opacity-50 cursor-pointer',
                               isActive 
                                 ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/40' 
                                 : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/40'
@@ -681,7 +767,16 @@ export default function AdminDashboardPage() {
                             ) : (
                               <CheckCircle className="w-3 h-3" />
                             )}
-                            {isActive ? 'Deactivate Player' : 'Activate Player'}
+                            {isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+
+                          <button
+                            onClick={() => setDeleteTarget({ uid: p.uid, email: p.email, name: p.displayName || 'Player', role: 'player' })}
+                            className="bg-rose-950/40 text-rose-400 border border-rose-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-rose-900/60 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Permanently delete this user account"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -747,24 +842,42 @@ export default function AdminDashboardPage() {
                             <div>Bookings</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <button
+                            onClick={() => handleOpenPasswordModal({ uid: o.uid, email: o.email, name: o.displayName || 'Owner', role: 'owner' })}
+                            className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Directly set new password for owner"
+                          >
+                            <KeyRound className="w-3 h-3" />
+                            <span>Change Password</span>
+                          </button>
+
                           {isActive ? (
                             <button
                               onClick={() => handleReject(o.uid)}
                               disabled={approvingId === o.uid}
-                              className="bg-rose-500/20 text-rose-400 border border-rose-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-rose-500/40 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              className="bg-rose-500/20 text-rose-400 border border-rose-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-rose-500/40 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                             >
-                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />} Deactivate Owner
+                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />} Deactivate
                             </button>
                           ) : (
                             <button
                               onClick={() => handleApprove(o.uid)}
                               disabled={approvingId === o.uid}
-                              className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded text-xs font-bold hover:bg-emerald-500/40 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-emerald-500/40 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                             >
-                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Activate Owner
+                              {approvingId === o.uid ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Activate
                             </button>
                           )}
+
+                          <button
+                            onClick={() => setDeleteTarget({ uid: o.uid, email: o.email, name: o.displayName || 'Owner', role: 'owner' })}
+                            className="bg-rose-950/40 text-rose-400 border border-rose-500/40 px-2.5 py-1.5 rounded text-xs font-bold hover:bg-rose-900/60 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Permanently delete this owner account and all associated venues"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1285,6 +1398,147 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ── Permanent Delete User Confirmation Modal ──────────────── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border-3 border-black p-6 rounded-sm shadow-[8px_8px_0px_#000] max-w-md w-full animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 mb-4 text-rose-500">
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 border-2 border-black flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black uppercase text-primary font-display">
+                  Permanently Delete Account?
+                </h3>
+                <p className="text-xs text-rose-400 font-bold">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="bg-card-nested border-2 border-black p-3.5 rounded-sm mb-5 text-xs space-y-1.5">
+              <div><span className="text-slate-400 font-semibold">User:</span> <strong className="text-primary">{deleteTarget.name}</strong></div>
+              <div><span className="text-slate-400 font-semibold">Email:</span> <strong className="text-primary">{deleteTarget.email}</strong></div>
+              <div><span className="text-slate-400 font-semibold">Role:</span> <strong className="text-yellow-400 uppercase">{deleteTarget.role}</strong></div>
+              <div><span className="text-slate-400 font-semibold">UID:</span> <code className="font-mono text-[11px] text-slate-300">{deleteTarget.uid}</code></div>
+            </div>
+
+            <p className="text-xs text-slate-400 font-semibold mb-6 leading-relaxed">
+              Deleting this account will permanently erase their user profile, all venues owned by them, and their bookings from the database.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 border-2 border-black rounded text-xs font-black uppercase bg-card hover:bg-card-hover text-primary shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 border-2 border-black rounded text-xs font-black uppercase bg-rose-600 hover:bg-rose-500 text-white shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Change User Password Modal ─────────────────────────────── */}
+      {passwordTarget && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border-3 border-black p-6 rounded-sm shadow-[8px_8px_0px_#000] max-w-md w-full animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 mb-4 text-amber-400">
+              <div className="w-10 h-10 rounded-full bg-amber-400/20 border-2 border-black flex items-center justify-center flex-shrink-0 text-amber-400">
+                <KeyRound className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black uppercase text-primary font-display">
+                  Change Account Password
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold">Set a new login password directly</p>
+              </div>
+            </div>
+
+            <div className="bg-card-nested border-2 border-black p-3.5 rounded-sm mb-4 text-xs space-y-1">
+              <div><span className="text-slate-400 font-semibold">User:</span> <strong className="text-primary">{passwordTarget.name}</strong></div>
+              <div><span className="text-slate-400 font-semibold">Email:</span> <strong className="text-primary">{passwordTarget.email}</strong></div>
+              <div><span className="text-slate-400 font-semibold">Role:</span> <strong className="text-yellow-400 uppercase">{passwordTarget.role}</strong></div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min. 6 chars)"
+                    className="w-full bg-slate-900 border-2 border-black rounded px-3 py-2 text-sm text-primary pr-10 focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className="w-full bg-slate-900 border-2 border-black rounded px-3 py-2 text-sm text-primary focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t-2 border-black/20">
+              <button
+                type="button"
+                onClick={() => handleSendPasswordReset(passwordTarget.email)}
+                disabled={resettingEmail === passwordTarget.email || isSavingPassword}
+                className="text-[11px] text-amber-400 hover:underline font-bold self-start sm:self-center disabled:opacity-50"
+              >
+                {resettingEmail === passwordTarget.email ? 'Sending email...' : 'Send reset link to email instead'}
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPasswordTarget(null)}
+                  disabled={isSavingPassword}
+                  className="px-3.5 py-1.5 border-2 border-black rounded text-xs font-black uppercase bg-card hover:bg-card-hover text-primary shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveNewPassword}
+                  disabled={isSavingPassword || !newPassword}
+                  className="px-4 py-1.5 border-2 border-black rounded text-xs font-black uppercase bg-yellow-400 hover:bg-yellow-300 text-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSavingPassword ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  <span>{isSavingPassword ? 'Saving...' : 'Set Password'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

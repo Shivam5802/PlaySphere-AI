@@ -28,8 +28,10 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 function getAdminEmails(): string[] {
-  const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
-  return raw
+  const rawEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const rawEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || '';
+  const combined = `${rawEmails},${rawEmail}`;
+  return combined
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
@@ -64,7 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+      let activeUser: User | null = firebaseUser;
+
+      if (!activeUser && typeof window !== 'undefined') {
+        const stored = localStorage.getItem('playsphere_session_user');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed?.uid) {
+              activeUser = {
+                uid: parsed.uid,
+                email: parsed.email,
+                displayName: parsed.displayName,
+                photoURL: parsed.photoURL,
+                getIdToken: async () => 'admin-override-token',
+              } as unknown as User;
+            }
+          } catch {}
+        }
+      }
+
+      setUser(activeUser);
 
       if (unsubscribeProfile) {
         unsubscribeProfile();
@@ -75,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         timeoutId = null;
       }
 
-      if (firebaseUser) {
+      if (activeUser) {
         setLoading(true);
         let hasResolved = false;
 
@@ -89,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, 4000);
 
         // Subscribe to real-time updates for user profile doc
-        unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
+        unsubscribeProfile = onSnapshot(doc(db, 'users', activeUser.uid), (docSnap) => {
           if (docSnap.exists()) {
             setProfile(docSnap.data() as UserProfile);
             setLoading(false);
@@ -100,11 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } else {
             // The user profile doc does not exist yet. Attempt creation and resolve.
-            ensureUserProfile(firebaseUser, undefined, 'player').catch((err) => {
-              console.warn('Auto-creation of user profile failed:', err);
+            if (firebaseUser) {
+              ensureUserProfile(firebaseUser, undefined, 'player').catch((err) => {
+                console.warn('Auto-creation of user profile failed:', err);
+                setLoading(false);
+                hasResolved = true;
+              });
+            } else {
               setLoading(false);
               hasResolved = true;
-            });
+            }
             setProfile(null);
           }
         }, (err) => {

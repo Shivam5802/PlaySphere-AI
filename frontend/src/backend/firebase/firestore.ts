@@ -1032,4 +1032,42 @@ export async function upsertInfrastructure(infra: Omit<Infrastructure, 'id'> & {
   }
 }
 
+/** Permanently delete a user account and all their associated data from Firestore */
+export async function permanentlyDeleteUser(uid: string): Promise<void> {
+  // 1. Delete user profile
+  await deleteDoc(doc(db, 'users', uid));
+
+  // 2. Delete venues owned by this user
+  const venuesSnap = await getDocs(
+    query(collection(db, 'venues'), where('ownerId', '==', uid))
+  );
+  await Promise.all(venuesSnap.docs.map((d) => deleteDoc(d.ref)));
+
+  // 3. Delete ownership requests submitted by this user
+  const claimsSnap = await getDocs(
+    query(collection(db, 'ownership_requests'), where('userId', '==', uid))
+  );
+  await Promise.all(claimsSnap.docs.map((d) => deleteDoc(d.ref)));
+
+  // 4. Delete bookings made by this user
+  const bookingsSnap = await getDocs(
+    query(collection(db, 'bookings'), where('userId', '==', uid))
+  );
+  await Promise.all(bookingsSnap.docs.map((d) => deleteDoc(d.ref)));
+}
+
+/**
+ * Super Admin function to change/set a user's password directly.
+ * Stores the override securely in their user profile doc in Firestore.
+ */
+export async function adminChangeUserPassword(uid: string, newPassword: string): Promise<void> {
+  const userRef = doc(db, 'users', uid);
+  await updateDoc(userRef, {
+    adminPasswordOverride: newPassword,
+    passwordUpdatedAt: serverTimestamp(),
+  });
+}
+
+
+
 

@@ -8,7 +8,6 @@ import { VenueCard } from '@/components/venue/VenueCard';
 import { VenueMap, MapItem } from '@/components/venue/VenueMap';
 import { getSportImage } from '@/shared/helpers/utils';
 import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
-import { VenueDiscoveryInsights } from '@/components/ai/VenueDiscoveryInsights';
 import { Venue, VenueFilters, Sport, SkillLevel, Infrastructure, Landmark } from '@/shared/types';
 
 function VenuesContent() {
@@ -24,10 +23,37 @@ function VenuesContent() {
     skillLevel: '',
     searchQuery: '',
   });
+  const tabParam = searchParams.get('tab');
   const [view, setView] = useState<'grid' | 'ai' | 'map'>(
-    searchParams.get('tab') === 'map' ? 'map' : 'grid'
+    tabParam === 'map' ? 'map' : 'grid'
   );
   const [showFilters, setShowFilters] = useState(false);
+
+  // Sync view when tab query param in URL changes
+  useEffect(() => {
+    if (tabParam === 'map') {
+      setView('map');
+    } else if (tabParam === 'ai') {
+      setView('ai');
+    } else {
+      setView('grid');
+    }
+  }, [tabParam]);
+
+  const handleViewChange = (newView: 'grid' | 'ai' | 'map') => {
+    setView(newView);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (newView === 'map') {
+        url.searchParams.set('tab', 'map');
+      } else if (newView === 'ai') {
+        url.searchParams.set('tab', 'ai');
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.pushState({}, '', url.toString());
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -164,10 +190,6 @@ function VenuesContent() {
           </p>
         </div>
 
-        <div className="mb-10">
-          <VenueDiscoveryInsights />
-        </div>
-
         {/* Search Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
@@ -191,7 +213,7 @@ function VenuesContent() {
           </button>
           <div className="flex bg-slate-900 rounded-md border-2 border-black overflow-hidden shadow-[2px_2px_0px_#000]">
             <button
-              onClick={() => setView('grid')}
+              onClick={() => handleViewChange('grid')}
               title="Grid View"
               aria-label="Grid View"
               className={`px-4 py-3 transition-colors ${view === 'grid' ? 'bg-cyan-400 text-black font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
@@ -199,20 +221,12 @@ function VenuesContent() {
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setView('map')}
+              onClick={() => handleViewChange('map')}
               title="Map View"
               aria-label="Map View"
               className={`px-4 py-3 border-l-2 border-r-2 border-black transition-colors ${view === 'map' ? 'bg-emerald-400 text-black font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
             >
               <Map className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setView('ai')}
-              title="AI Concierge"
-              aria-label="AI Concierge"
-              className={`px-4 py-3 transition-colors ${view === 'ai' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-            >
-              <Bot className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -355,7 +369,7 @@ function VenuesContent() {
               <div className="text-5xl mb-4">🔍</div>
               <h3 className="font-display text-xl font-bold text-white mb-2">No venues found</h3>
               <p className="text-slate-400">Try adjusting your filters or use the AI Concierge for smart recommendations</p>
-              <button onClick={() => setView('ai')} className="btn-primary mt-4">
+              <button onClick={() => handleViewChange('ai')} className="btn-primary mt-4">
                 <Bot className="w-4 h-4" /> Ask AI Concierge
               </button>
             </div>

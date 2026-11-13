@@ -14,9 +14,10 @@ export function Footer() {
 
           {/* ── Brand Column ── */}
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 mb-4 group w-fit">
-              <div className="w-9 h-9 bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150">
-                <Zap className="w-5 h-5 text-black fill-black" />
+            <Link href="/" className="flex items-center gap-2.5 mb-4 group w-fit cursor-pointer">
+              <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center p-1 shadow-[2px_2px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/favicon.ico" alt="PlaySphere AI Logo" className="w-full h-full object-contain" />
               </div>
               <span
                 className="gradient-text text-xl"
@@ -61,9 +62,9 @@ export function Footer() {
             <ul className="space-y-3">
               {[
                 { label: 'Discover Venues', href: '/venues' },
-                { label: 'AI Concierge', href: '/#ai-concierge' },
                 { label: 'Map View', href: '/venues?tab=map' },
-                { label: 'My Bookings', href: '/dashboard' },
+                { label: 'AI Concierge', href: '/concierge' },
+                { label: 'About US', href: '/about' },
               ].map((item) => (
                 <li key={item.label}>
                   <Link
@@ -88,10 +89,10 @@ export function Footer() {
             </h4>
             <ul className="space-y-3">
               {[
-                { label: '🏸 Badminton', href: '/venues?sport=badminton' },
-                { label: '⚽ Football', href: '/venues?sport=football' },
-                { label: '🏊 Swimming', href: '/venues?sport=swimming' },
-                { label: '🤼 Kabaddi', href: '/venues?sport=kabaddi' },
+                { label: 'Badminton', href: '/venues?sport=badminton' },
+                { label: 'Football', href: '/venues?sport=football' },
+                { label: 'Swimming', href: '/venues?sport=swimming' },
+                { label: 'Kabaddi', href: '/venues?sport=kabaddi' },
               ].map((item) => (
                 <li key={item.label}>
                   <Link
@@ -110,19 +111,15 @@ export function Footer() {
         {/* ── Bottom Bar ── */}
         <div className="border-t-2 border-black mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-yellow-400 border border-black flex-shrink-0" />
             <p className="text-slate-500 text-xs font-semibold">
-              © {currentYear} PlaySphere AI — Built by{' '}
-              <span className="text-cyan-500 font-black">Team DeepStack</span>
-              {' '}for the Lucknow Sports Community.
+              © {currentYear} PlaySphere AI — Built for the Lucknow Sports Community
             </p>
           </div>
-          <p
-            className="text-slate-600 text-[10px] uppercase tracking-[0.1em] font-bold"
-            style={{ fontFamily: 'var(--font-space-mono, monospace)' }}
-          >
-            GEMINI · FIREBASE · NEXT.JS · TEAM DEEPSTACK
-          </p>
+          <div className="flex items-center gap-3">
+          <Link href="/about" className="text-cyan-500 hover:text-cyan-400 font-black hover:underline cursor-pointer">
+            Team DeepStack
+          </Link>
+          </div>
         </div>
       </div>
     </footer>
