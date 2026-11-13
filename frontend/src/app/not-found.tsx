@@ -7,20 +7,6 @@ export default function NotFound() {
   return (
     <div className="min-h-screen hero-gradient flex items-center justify-center px-4">
       <div className="text-center max-w-lg">
-        {/* Logo */}
-        <Link href="/" className="inline-flex items-center gap-2.5 mb-12 group cursor-pointer">
-          <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center p-1 shadow-[2px_2px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon.ico" alt="PlaySphere AI Logo" className="w-full h-full object-contain" />
-          </div>
-          <span
-            className="gradient-text text-xl"
-            style={{ fontFamily: 'var(--font-bebas), var(--font-space), sans-serif', letterSpacing: '0.04em' }}
-          >
-            PlaySphere AI
-          </span>
-        </Link>
-
         {/* 404 Display */}
         <div className="relative mb-8 select-none">
           <div
