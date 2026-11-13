@@ -493,10 +493,6 @@ export default function SquadsPage() {
 
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-400/30 border border-black rounded text-[11px] font-black uppercase tracking-wider text-primary mb-2">
-                <Trophy className="w-3.5 h-3.5 text-yellow-600" />
-                <span>Lucknow Player Matchmaking</span>
-              </div>
               <h1
                 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-primary tracking-wide leading-none mb-3"
                 style={{ fontFamily: 'var(--font-bebas), sans-serif' }}

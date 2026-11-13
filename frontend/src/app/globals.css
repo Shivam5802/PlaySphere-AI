@@ -1,8 +1,5 @@
 @import "tailwindcss";
 
-/* ─── NEO-BRUTALISM: PlaySphere AI ──────────────────────────────────── */
-/* Bebas Neue for display, Space Grotesk for body, Space Mono for labels */
-
 @theme {
   --color-slate-950: var(--bg-color);
   --color-slate-900: var(--card-bg);
@@ -16,7 +13,6 @@
 
 @layer base {
   :root {
-    /* Dark Theme (Default) — Deep Navy Neo-Brutalism */
     --bg-color: #080a10;
     --text-color: #f8fafc;
     --text-secondary: #cbd5e1;
@@ -38,7 +34,6 @@
   }
 
   .light {
-    /* Light Theme — Warm Cream Neo-Brutalism */
     --bg-color: #fafaf7;
     --text-color: #0c0f17;
     --text-secondary: #374151;
@@ -56,7 +51,6 @@
     box-sizing: border-box;
   }
 
-  /* Universal pointer cursor for all buttons, links & interactive controls */
   button,
   a,
   [role="button"],
@@ -81,7 +75,6 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* ── Global Neo-Brutalist Input & Select Styles ── */
   input[type="text"],
   input[type="email"],
   input[type="password"],
@@ -136,14 +129,6 @@
     color: #000000;
   }
 
-  /* ─── THEME-AWARE SEMANTIC CLASSES ───────────────────────────────
-   * Use these instead of hardcoded hex colors so light/dark work.
-   * bg-canvas   → var(--bg-color)   dark:#080a10  light:#fafaf7
-   * bg-card     → var(--card-bg)    dark:#0f1120  light:#ffffff
-   * bg-card-alt → slightly darker than card for nested elements
-   * text-primary → var(--text-color)
-   * text-muted   → var(--text-muted)
-  ─────────────────────────────────────────────────────────────────── */
   .bg-canvas {
     background-color: var(--bg-color);
   }
@@ -156,7 +141,6 @@
     background-color: var(--card-bg-hover);
   }
 
-  /* Keep the navigation surface distinct from the page in both themes. */
   .bg-chrome {
     background-color: var(--card-bg);
   }
@@ -165,7 +149,6 @@
     background-color: var(--card-bg-hover);
   }
 
-  /* Nested bg inside cards (amenity tags, code chips) */
   .bg-card-nested {
     background-color: var(--bg-color);
   }
@@ -174,7 +157,6 @@
     background-color: var(--card-bg-hover);
   }
 
-  /* Text */
   .text-primary {
     color: var(--text-color);
   }
@@ -189,7 +171,6 @@
     border-color: var(--border-color);
   }
 
-  /* ── TYPOGRAPHY ─────────────────────────────────────────────── */
   .font-display {
     font-family: var(--font-space);
   }
@@ -206,7 +187,6 @@
     text-transform: uppercase;
   }
 
-  /* ── GRADIENT TEXT ───────────────────────────────────────────── */
   .gradient-text {
     background: linear-gradient(135deg, #facc15 0%, #f472b6 50%, #22d3ee 100%);
     -webkit-background-clip: text;
@@ -223,7 +203,6 @@
     font-weight: 900;
   }
 
-  /* ── HERO GRADIENT ───────────────────────────────────────────── */
   .hero-gradient {
     background-color: var(--bg-color);
     background-image:
@@ -234,7 +213,6 @@
     border-bottom: 3px solid var(--border-color);
   }
 
-  /* ── CARD / GLASS SYSTEM ──────────────────────────────────────── */
   .glass {
     background: var(--card-bg);
     border: 3px solid var(--border-color);
@@ -250,7 +228,6 @@
     border-radius: 8px;
   }
 
-  /* ── CARD HOVER LIFT ─────────────────────────────────────────── */
   .card-hover {
     transition: all 0.18s ease;
   }
@@ -261,7 +238,6 @@
     border-color: #000000;
   }
 
-  /* Card hover variants */
   .card-hover-cyan:hover {
     transform: translate(-6px, -6px);
     box-shadow: 11px 11px 0px 0px #22d3ee;
@@ -272,7 +248,6 @@
     box-shadow: 11px 11px 0px 0px #f472b6;
   }
 
-  /* ── GLOW UTILITIES ──────────────────────────────────────────── */
   .glow-yellow {
     box-shadow: 0 0 24px rgba(250, 204, 21, 0.2), 4px 4px 0px 0px #000000;
   }
@@ -285,7 +260,6 @@
     box-shadow: 0 0 24px rgba(244, 114, 182, 0.15), 4px 4px 0px 0px #000000;
   }
 
-  /* ── BRUTAL SHADOW SCALE ─────────────────────────────────────── */
   .shadow-brutal-xs { box-shadow: 2px 2px 0px 0px #000000; }
   .shadow-brutal-sm { box-shadow: 3px 3px 0px 0px #000000; }
   .shadow-brutal-md { box-shadow: 4px 4px 0px 0px #000000; }
@@ -293,12 +267,10 @@
   .shadow-brutal-xl { box-shadow: 8px 8px 0px 0px #000000; }
   .shadow-brutal-2xl { box-shadow: 10px 10px 0px 0px #000000; }
 
-  /* Colored shadows */
   .shadow-yellow { box-shadow: 6px 6px 0px 0px #facc15; }
   .shadow-cyan   { box-shadow: 6px 6px 0px 0px #22d3ee; }
   .shadow-pink   { box-shadow: 6px 6px 0px 0px #f472b6; }
 
-  /* ── BUTTONS ─────────────────────────────────────────────────── */
   .btn-primary {
     background: #facc15;
     color: #000000;
@@ -374,8 +346,7 @@
     transform: none;
     box-shadow: 2px 2px 0px 0px #000000;
   }
-
-  /* Ghost Button */
+  
   .btn-ghost {
     background: transparent;
     color: var(--text-color);
@@ -402,7 +373,6 @@
     box-shadow: 5px 5px 0px 0px #facc15;
   }
 
-  /* ── BADGE / TAG ─────────────────────────────────────────────── */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -425,7 +395,6 @@
   .badge-rose   { background: #fb7185; color: #000000; }
   .badge-dark   { background: var(--card-bg); color: var(--text-color); }
 
-  /* ── SECTION LABEL ───────────────────────────────────────────── */
   .section-label {
     font-family: 'Space Mono', ui-monospace, monospace;
     font-size: 0.6875rem;
@@ -435,7 +404,6 @@
     color: #94a3b8;
   }
 
-  /* ── FIELD LABEL ─────────────────────────────────────────────── */
   .field-label {
     display: block;
     font-size: 0.6875rem;
@@ -447,7 +415,6 @@
     font-family: 'Space Mono', ui-monospace, monospace;
   }
 
-  /* ── SCROLLBAR ───────────────────────────────────────────────── */
   .scrollbar-hide {
     -ms-overflow-style: none;
   }
@@ -462,30 +429,25 @@
     display: none;
   }
 
-  /* ── ANIMATION DELAYS ────────────────────────────────────────── */
   .animation-delay-1s   { animation-delay: 1s; }
   .animation-delay-2s   { animation-delay: 2s; }
   .animation-delay-150ms { animation-delay: 150ms; }
   .animation-delay-300ms { animation-delay: 300ms; }
   .animation-delay-500ms { animation-delay: 500ms; }
 
-  /* ── BORDER WIDTHS ────────────────────────────────────────────── */
   .border-3 { border-width: 3px; }
   .border-b-3 { border-bottom-width: 3px; }
   .border-t-3 { border-top-width: 3px; }
 
-  /* ── STRIPE ACCENT ───────────────────────────────────────────── */
   .stripe-yellow { border-top: 4px solid #facc15; }
   .stripe-cyan   { border-top: 4px solid #22d3ee; }
   .stripe-pink   { border-top: 4px solid #f472b6; }
   .stripe-emerald { border-top: 4px solid #34d399; }
 
-  /* ── NEO-BRUTALIST DIVIDER ───────────────────────────────────── */
   .neo-divider {
     border-top: 3px solid #000000;
   }
 
-  /* ── MARQUEE STRIP ───────────────────────────────────────────── */
   .marquee-strip {
     overflow: hidden;
     white-space: nowrap;
@@ -501,7 +463,6 @@
   }
 }
 
-/* ── KEYFRAME ANIMATIONS ─────────────────────────────────────────────── */
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   33%       { transform: translateY(-10px) rotate(2deg); }
@@ -544,7 +505,6 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
-/* ── ANIMATION CLASSES ─────────────────────────────────────────────────── */
 .animate-float         { animation: float 4.5s ease-in-out infinite; }
 .animate-float-reverse { animation: float-reverse 3.5s ease-in-out infinite; }
 .animate-pulse-glow    { animation: pulse-glow 2.5s ease-in-out infinite; }
@@ -557,7 +517,6 @@
 .animate-stamp-in { animation: stamp-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .animate-slide-up { animation: slide-up 0.35s ease forwards; }
 
-/* ── GOOGLE MAPS INFOWINDOW OVERRIDES ─────────────────────────────────── */
 .gm-style .gm-style-iw-c {
   background-color: var(--card-bg) !important;
   border: 3px solid #000000 !important;
@@ -581,25 +540,9 @@
 .gm-style-iw-ch { padding: 0 !important; }
 
 .gm-ui-hover-effect {
-  top: 4px !important;
-  right: 4px !important;
-  background: #000000 !important;
-  border-radius: 4px !important;
-  border: 2px solid #000000 !important;
-  width: 24px !important;
-  height: 24px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  display: none !important;
 }
 
-.gm-ui-hover-effect span {
-  margin: 0 !important;
-  fill: #ffffff !important;
-  color: #ffffff !important;
-}
-
-/* ── MARQUEE STRIP TEXT ────────────────────────────────────────────────── */
 .marquee-item {
   display: inline-flex;
   align-items: center;
@@ -613,7 +556,6 @@
   color: #000000;
 }
 
-/* ── 3D FLIP CARD UTILITIES ────────────────────────────────────────────── */
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -631,7 +573,6 @@
   transform: rotateY(180deg);
 }
 
-/* ── TOAST PROGRESS & ENTRANCE ANIMATIONS ───────────────────────── */
 @keyframes toastSlideIn {
   from {
     transform: translateX(110%);

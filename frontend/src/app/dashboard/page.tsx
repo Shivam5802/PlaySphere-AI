@@ -482,7 +482,7 @@ export default function DashboardPage() {
                           }
                         }}
                         title="Remove from saved"
-                        className="absolute top-2 right-2 w-8 h-8 bg-card border-2 border-black flex items-center justify-center text-cyan-400 hover:text-rose-500 shadow-[2px_2px_0px_#000] cursor-pointer transition-colors"
+                        className="absolute top-2 right-2 w-8 h-8 bg-yellow-400 text-black border-2 border-black rounded flex items-center justify-center hover:bg-rose-500 hover:text-white shadow-[2px_2px_0px_#000] cursor-pointer transition-colors"
                       >
                         <BookmarkCheck className="w-4 h-4 stroke-[2.5]" />
                       </button>
