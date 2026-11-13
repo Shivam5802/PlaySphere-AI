@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Shield } from 'lucide-react';
 import { signInWithEmail, signInWithGoogle } from '@/backend/firebase/auth';
+import { db } from '@/backend/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthProvider';
-import { useEffect } from 'react';
+import { useToast } from '@/contexts/ToastContext';
 
 function formatAuthError(err: any): string {
   if (!err) return 'Authentication failed. Please try again.';
@@ -38,12 +40,12 @@ function formatAuthError(err: any): string {
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
   const { user, loading: authLoading, isAdmin, isOwner } = useAuth();
 
   useEffect(() => {
@@ -57,13 +59,52 @@ export default function LoginPage() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     try {
-      await signInWithEmail(email, password);
-      // Redirect will be handled by the useEffect watching isAdmin/isOwner
+      const loggedUser = await signInWithEmail(email, password);
+      toast.success('Signed in successfully! Redirecting...');
+
+      // Fast-path direct redirect
+      try {
+        const userDocSnap = await getDoc(doc(db, 'users', loggedUser.uid));
+        const role = userDocSnap.exists() ? userDocSnap.data()?.role : null;
+
+        const adminEmails = (
+          process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+          process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
+          ''
+        )
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean);
+
+        const isUserAdmin = adminEmails.includes(loggedUser.email?.toLowerCase() || '');
+
+        if (isUserAdmin) {
+          router.push('/admin');
+        } else if (role === 'owner') {
+          router.push('/owner');
+        } else {
+          router.push('/dashboard');
+        }
+      } catch {
+        router.push('/dashboard');
+      }
     } catch (err: unknown) {
-      console.error('Login error:', err);
-      setError('Invalid email or password. Please try again.');
+      const firebaseError = err as { code?: string; message?: string };
+      const code = firebaseError?.code || '';
+
+      let message = 'Invalid email or password. Please try again.';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        message = 'Invalid email or password. Please try again.';
+      } else if (code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please wait a moment and try again.';
+      } else if (code === 'auth/user-disabled') {
+        message = 'This account has been disabled.';
+      } else if (code === 'auth/invalid-email') {
+        message = 'Please enter a valid email address.';
+      }
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -71,17 +112,12 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    setError('');
     try {
-      const user = await signInWithGoogle();
-      if (!user) {
-        // Redirect initiated or popup closed
-        return;
-      }
+      await signInWithGoogle();
+      toast.success('Signed in with Google! Redirecting...');
       // Redirect handled by useEffect
-    } catch (err: any) {
-      console.error('Google login error:', err);
-      setError(formatAuthError(err));
+    } catch {
+      toast.error('Google sign-in was cancelled or failed.');
     } finally {
       setGoogleLoading(false);
     }
@@ -92,13 +128,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 font-display font-bold text-2xl mb-2">
-            <div className="w-10 h-10 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
-              <Zap className="w-5 h-5 text-black fill-black" />
-            </div>
-            <span className="gradient-text [text-shadow:1.5px_1.5px_0px_#000]">PlaySphere AI</span>
-          </Link>
-          <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Welcome back</h1>
+          <h1 className="font-display text-2xl font-black text-slate-200 mt-2 uppercase tracking-wide">Welcome back !!</h1>
           <p className="text-slate-400 text-sm mt-1 font-medium">Sign in to continue your sports journey</p>
         </div>
 
@@ -107,7 +137,7 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleLogin}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white text-black font-display font-black border-3 border-black rounded-md py-3 mb-6 shadow-[4px_4px_0px_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 bg-white text-black font-display font-black border-3 border-black rounded-md py-3 mb-6 shadow-[4px_4px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[6px_6px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 cursor-pointer"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -163,17 +193,10 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border-2 border-black rounded-md px-4 py-3 text-red-400 text-sm font-bold shadow-[2px_2px_0px_#000]">
-                {error}
-              </div>
-            )}
-
             <button type="submit" disabled={loading} className="w-full btn-primary justify-center py-3">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
-
           <p className="text-center text-slate-400 text-sm mt-6 font-medium">
             New to PlaySphere?{' '}
             <Link href="/auth/signup" className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors underline decoration-black underline-offset-4">

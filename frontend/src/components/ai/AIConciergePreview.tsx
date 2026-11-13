@@ -19,10 +19,10 @@ interface ConciergeCard {
   action: 'book' | 'view' | 'verify';
 }
 
-interface ChatMessageItem {
+export interface ChatMessageItem {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isError?: boolean;
   action?: {
     type: 'book';
@@ -34,44 +34,64 @@ interface ChatMessageItem {
   cards?: ConciergeCard[];
 }
 
-const DISCOVERY_GREETING = "Hi! I'm PlaySphere AI (Discovery Mode) 🏆 I can help you find and compare sports venues in Lucknow. Ask me something like:\n\n• \"Beginner badminton near Gomti Nagar under ₹300\"\n• \"Football turf for 10 friends this weekend\"\n• \"Cheapest swimming pool near Hazratganj\"";
+export const DISCOVERY_GREETING = "Hi! I'm PlaySphere AI (Discovery Mode) 🏆 I can help you find and compare sports venues in Lucknow. Ask me something like:\n\n• \"Beginner badminton near Gomti Nagar under ₹300\"\n• \"Football turf for 10 friends this weekend\"\n• \"Cheapest swimming pool near Hazratganj\"";
 
-const GUIDANCE_GREETING = "Hi! I'm PlaySphere AI (Guidance Mode) 🏸 I'm here to provide light sports tips, basic rules, workout timing advice, and beginner suggestions. Ask me something like:\n\n• \"What are the basic rules of badminton?\"\n• \"Affordable slot timings for beginner practice\"\n• \"Simple guidelines to choose a football size\"";
+export const GUIDANCE_GREETING = "Hi! I'm PlaySphere AI (Guidance Mode) 🏸 I'm here to provide light sports tips, basic rules, workout timing advice, and beginner suggestions. Ask me something like:\n\n• \"What are the basic rules of badminton?\"\n• \"Affordable slot timings for beginner practice\"\n• \"Simple guidelines to choose a football size\"";
 
-export function AIConciergePreview() {
+export interface AIConciergePreviewProps {
+  fullPage?: boolean;
+  initialMessages?: ChatMessageItem[];
+  onMessagesChange?: (messages: ChatMessageItem[]) => void;
+  onNewChat?: () => void;
+}
+
+export function AIConciergePreview({
+  fullPage = false,
+  initialMessages,
+  onMessagesChange,
+  onNewChat,
+}: AIConciergePreviewProps) {
   const [mode, setMode] = useState<'discovery' | 'guidance'>('discovery');
-  const [messages, setMessages] = useState<ChatMessageItem[]>([
-    {
-      role: 'assistant',
-      content: DISCOVERY_GREETING,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessageItem[]>(() => {
+    return initialMessages && initialMessages.length > 0
+      ? initialMessages
+      : [
+          {
+            role: 'assistant',
+            content: DISCOVERY_GREETING,
+            timestamp: new Date(),
+          },
+        ];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { coordinates: userLocation } = useGeolocation();
 
-  // When mode changes, reset chat with the appropriate greeting
+  // Scroll to bottom when messages update
   useEffect(() => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: mode === 'discovery' ? DISCOVERY_GREETING : GUIDANCE_GREETING,
-        timestamp: new Date(),
-      },
-    ]);
-  }, [mode]);
-
-  const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
   }, [messages]);
+
+  const handleModeSwitch = (newMode: 'discovery' | 'guidance') => {
+    if (mode === newMode) return;
+    setMode(newMode);
+    
+    // Only switch greeting if no user messages have been sent yet
+    const hasUserMessages = messages.some((m) => m.role === 'user');
+    if (!hasUserMessages) {
+      const nextGreeting: ChatMessageItem[] = [
+        {
+          role: 'assistant',
+          content: newMode === 'discovery' ? DISCOVERY_GREETING : GUIDANCE_GREETING,
+          timestamp: new Date(),
+        },
+      ];
+      setMessages(nextGreeting);
+    }
+  };
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -86,19 +106,23 @@ export function AIConciergePreview() {
       timestamp: new Date(),
     };
 
+    let updatedList: ChatMessageItem[];
     if (isRetry) {
       // Remove the last error assistant message
-      setMessages((prev) => prev.slice(0, -1));
-    } else if (!text || !messages.some(m => m.role === 'user' && m.content === messageText && Date.now() - m.timestamp.getTime() < 5000)) {
-      setMessages((prev) => [...prev, userMessage]);
+      updatedList = messages.slice(0, -1);
+    } else {
+      updatedList = [...messages, userMessage];
     }
+    
+    setMessages(updatedList);
+    onMessagesChange?.(updatedList);
     
     setInput('');
     setLoading(true);
 
     try {
       // Get conversation history excluding initial greeting
-      const history = messages
+      const history = updatedList
         .filter((_, idx) => idx > 0)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -136,14 +160,18 @@ export function AIConciergePreview() {
         action: data.action,
         cards: data.cards || [],
       };
-      setMessages((prev) => [...prev, aiMessage]);
+      const finalSuccessList = [...updatedList, aiMessage];
+      setMessages(finalSuccessList);
+      onMessagesChange?.(finalSuccessList);
     } catch (err) {
       console.error('Concierge request error:', err);
-      const errorMsg = (err instanceof Error && err.message) ? err.message : 'AI Concierge temporarily unavailable.';
-      setMessages((prev) => [
-        ...prev,
+      const errorMsg = 'AI Concierge temporarily unavailable.';
+      const finalErrorList: ChatMessageItem[] = [
+        ...updatedList,
         { role: 'assistant', content: errorMsg, timestamp: new Date(), isError: true },
-      ]);
+      ];
+      setMessages(finalErrorList);
+      onMessagesChange?.(finalErrorList);
     } finally {
       setLoading(false);
     }
@@ -173,8 +201,8 @@ export function AIConciergePreview() {
   return (
     <div className="bg-card border-3 border-black overflow-hidden shadow-[6px_6px_0px_#000]">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b-2 border-black bg-purple-600 text-white">
-        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000]">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b-2 border-black bg-purple-600 text-white">
+        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] shrink-0">
           <Bot className="w-5 h-5 text-black" />
         </div>
         <div>
@@ -184,14 +212,27 @@ export function AIConciergePreview() {
             <span className="text-xs text-white/95 font-semibold">Online • Powered by Gemini</span>
           </div>
         </div>
-        <Sparkles className="w-4 h-4 text-yellow-400 ml-auto fill-yellow-400" />
+
+        {onNewChat && (
+          <button
+            onClick={onNewChat}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase bg-yellow-400 text-black border-2 border-black rounded shadow-[2px_2px_0px_#000] hover:bg-yellow-300 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            title="Start a new chat session"
+          >
+            <RefreshCw className="w-3.5 h-3.5 stroke-[2.5px]" />
+            <span className="hidden sm:inline">New Chat</span>
+          </button>
+        )}
+        {!onNewChat && (
+          <Sparkles className="w-4 h-4 text-yellow-400 ml-auto fill-yellow-400" />
+        )}
       </div>
 
       {/* Mode Selector Toggle */}
       <div className="flex border-b-2 border-black p-2 bg-card-nested gap-2">
         <button
           suppressHydrationWarning={true}
-          onClick={() => setMode('discovery')}
+          onClick={() => handleModeSwitch('discovery')}
           className={cn(
             "flex-1 text-center py-1.5 text-xs font-black border-2 border-black transition-all shadow-[2px_2px_0px_#000] cursor-pointer",
             mode === 'discovery' ? "bg-purple-600 text-white shadow-[1px_1px_0px_#000] translate-x-0.5 translate-y-0.5" : "bg-card text-muted-theme hover:text-primary"
@@ -201,7 +242,7 @@ export function AIConciergePreview() {
         </button>
         <button
           suppressHydrationWarning={true}
-          onClick={() => setMode('guidance')}
+          onClick={() => handleModeSwitch('guidance')}
           className={cn(
             "flex-1 text-center py-1.5 text-xs font-black border-2 border-black transition-all shadow-[2px_2px_0px_#000] cursor-pointer",
             mode === 'guidance' ? "bg-emerald-400 text-black shadow-[1px_1px_0px_#000] translate-x-0.5 translate-y-0.5" : "bg-card text-muted-theme hover:text-primary"
@@ -212,7 +253,13 @@ export function AIConciergePreview() {
       </div>
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="h-80 overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth">
+      <div
+        ref={messagesContainerRef}
+        className={cn(
+          "overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth",
+          fullPage ? "h-80 md:h-87.5" : "h-72"
+        )}
+      >
         {messages.map((msg, i) => (
           <div key={i} className={cn("flex flex-col", msg.role === 'user' ? 'items-end' : 'items-start')}>
             <div
@@ -233,7 +280,7 @@ export function AIConciergePreview() {
                   </span>
                   <Link
                     href={`/venues/${msg.action.venueId}?date=${msg.action.date}&slot=${encodeURIComponent(msg.action.slot)}`}
-                    className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs px-4 py-2.5 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] transition-all no-underline"
+                    className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs px-4 py-2.5 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0px_#000] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0px_#000] transition-all no-underline"
                   >
                     ⚡ Continue Booking
                   </Link>
@@ -261,7 +308,7 @@ export function AIConciergePreview() {
                     return (
                       <div
                         key={card.venueId}
-                        className="bg-card-nested border-2 border-black overflow-hidden shadow-[3px_3px_0px_#000] flex flex-col hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#000] transition-all"
+                        className="bg-card-nested border-2 border-black overflow-hidden shadow-[3px_3px_0px_#000] flex flex-col hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0px_#000] transition-all"
                       >
                         {/* Image */}
                         <div className="relative h-28 overflow-hidden bg-card-nested border-b border-black">
@@ -277,7 +324,7 @@ export function AIConciergePreview() {
                               🏢
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                           <span className="absolute bottom-2 left-2 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-black bg-cyan-400 text-black">
                             {card.sport}
                           </span>
@@ -371,7 +418,7 @@ export function AIConciergePreview() {
             key={prompt}
             onClick={() => sendMessage(prompt)}
             disabled={loading}
-            className="text-xs bg-card border-2 border-black px-3 py-1.5 text-muted-theme font-bold hover:bg-cyan-400 hover:text-black hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_#000] transition-all cursor-pointer disabled:opacity-50"
+            className="text-xs bg-card border-2 border-black px-3 py-1.5 text-muted-theme font-bold hover:bg-cyan-400 hover:text-black hover:-translate-x-px hover:-translate-y-px hover:shadow-[2px_2px_0px_#000] transition-all cursor-pointer disabled:opacity-50"
           >
             {prompt}
           </button>
@@ -394,7 +441,7 @@ export function AIConciergePreview() {
           suppressHydrationWarning={true}
           onClick={() => sendMessage()}
           disabled={!input.trim() || loading}
-          className="w-11 h-11 rounded-md bg-purple-600 text-white font-bold border-2 border-black flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] transition-all flex-shrink-0 cursor-pointer"
+          className="w-11 h-11 rounded-md bg-purple-600 text-white font-bold border-2 border-black flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[2px_2px_0px_#000] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0px_#000] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0px_#000] transition-all shrink-0 cursor-pointer"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white fill-white" />}
         </button>

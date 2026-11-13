@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+**/node_modules/
+package-lock.json
+!frontend/package-lock.json
 /.pnp
 .pnp.*
 .yarn/*
@@ -26,6 +29,7 @@ firebase-export*
 
 # Node / Next.js
 .next/
+**/.next/
 /out/
 dist/
 /build

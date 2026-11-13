@@ -16,7 +16,7 @@ import { formatCurrency, formatDate, getSportEmoji, cn, getSportImage } from '@/
 import { AIConciergePreview } from '@/components/ai/AIConciergePreview';
 import { getBookingLifecycle } from '@/shared/helpers/pricing';
 
-type DashboardTab = 'bookings' | 'saved' | 'ai' | 'profile';
+type DashboardTab = 'bookings' | 'saved' | 'profile';
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth();
@@ -120,7 +120,6 @@ export default function DashboardPage() {
   const TABS: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
     { id: 'bookings', label: 'My Bookings', icon: <Calendar className="w-4 h-4" /> },
     { id: 'saved', label: 'Saved Venues', icon: <Bookmark className="w-4 h-4" /> },
-    { id: 'ai', label: 'AI Concierge', icon: <Bot className="w-4 h-4" /> },
     { id: 'profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
   ];
 
@@ -131,7 +130,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-display text-3xl font-bold mb-1">
-              Welcome back, <span className="gradient-text">{profile?.displayName?.split(' ')[0] || 'Player'}</span> 👋
+              Welcome back, <span className="gradient-text">{profile?.displayName?.split(' ')[0] || 'Player'}</span>
             </h1>
             <p className="text-slate-400">{upcoming.length} upcoming booking{upcoming.length !== 1 ? 's' : ''}</p>
           </div>
@@ -240,16 +239,6 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-
-        {/* ── TAB: AI CONCIERGE ───────────────────────────────────── */}
-        {tab === 'ai' && (
-          <div className="max-w-2xl mx-auto">
-            <AIConciergePreview />
-          </div>
-        )}
-
-
-
         {/* ── TAB: PROFILE ─────────────────────────────────────────── */}
         {tab === 'profile' && (
           <div className="glass rounded-lg p-8 max-w-lg border-2 border-black shadow-[4px_4px_0px_0px_#000]">

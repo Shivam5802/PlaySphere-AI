@@ -1,6 +1,6 @@
 import { upsertInfrastructure } from '../firebase/firestore';
 import { fetchOSMInfrastructure } from './osm-discovery';
-import { Infrastructure } from '../../shared/types';
+import { Infrastructure } from '@/shared/types';
 
 export interface DiscoveredCandidate {
   name: string;

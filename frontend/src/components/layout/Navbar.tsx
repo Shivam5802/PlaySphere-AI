@@ -1,25 +1,121 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import { Menu, X, Zap, LogOut, LayoutDashboard, Building2, Shield, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useTheme } from '@/contexts/ThemeProvider';
 import { logOut } from '@/backend/firebase/auth';
 import { cn } from '@/shared/helpers/utils';
 
+const NAV_LINKS = [
+  { href: '/venues', label: 'Discover' },
+  { href: '/venues?tab=map', label: 'Map View' },
+  { href: '/concierge', label: 'AI Concierge' },
+  { href: '/about', label: 'About Us' },
+];
+
+function NavLinksList({
+  mobile = false,
+  onClose,
+}: {
+  mobile?: boolean;
+  onClose?: () => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const isLinkActive = (href: string) => {
+    if (href === '/venues?tab=map') {
+      return pathname === '/venues' && searchParams.get('tab') === 'map';
+    }
+    if (href === '/venues') {
+      return pathname === '/venues' && searchParams.get('tab') !== 'map';
+    }
+    if (href === '/concierge') {
+      return pathname === '/concierge';
+    }
+    if (href === '/about') {
+      return pathname === '/about';
+    }
+    return pathname === href;
+  };
+
+  return (
+    <>
+      {NAV_LINKS.map((link) => {
+        const isActive = isLinkActive(link.href);
+        if (mobile) {
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              role="menuitem"
+              onClick={onClose}
+              className={cn(
+                'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150 cursor-pointer',
+                isActive
+                  ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                  : 'text-slate-400 border-transparent hover:text-yellow-400 hover:bg-card hover:border-yellow-400/30'
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        }
+
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={cn(
+              'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm cursor-pointer',
+              isActive
+                ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                : 'text-slate-400 border-transparent hover:text-yellow-400 hover:border-yellow-400/40'
+            )}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
+function NavLinksFallback({ mobile = false }: { mobile?: boolean }) {
+  const pathname = usePathname();
+
+  return (
+    <>
+      {NAV_LINKS.map((link) => {
+        const isActive = link.href === '/about' && pathname === '/about';
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={cn(
+              mobile
+                ? 'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150 text-slate-400 border-transparent cursor-pointer'
+                : 'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm cursor-pointer',
+              isActive
+                ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
+                : 'text-slate-400 border-transparent hover:text-yellow-400'
+            )}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAdmin, isOwner } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const pathname = usePathname();
-
-  const navLinks = [
-    { href: '/venues', label: 'Discover' },
-    { href: '/venues?tab=map', label: 'Map View' },
-    { href: '/#ai-concierge', label: 'AI Concierge' },
-  ];
 
   // Role-aware dashboard link
   const dashboardHref = isAdmin ? '/admin' : isOwner ? '/owner' : '/dashboard';
@@ -43,10 +139,22 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
 
           {/* ── Logo ── */}
-          <Link href="/" className="flex items-center gap-2.5 group" aria-label="PlaySphere AI Home">
-            <div className="w-9 h-9 rounded-md overflow-hidden bg-white border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150">
+          <Link
+            href="/"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                if (window.location.hash) {
+                  window.history.replaceState(null, '', '/');
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="flex items-center gap-2.5 group cursor-pointer"
+            aria-label="PlaySphere AI Home"
+          >
+            <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center p-1 shadow-[2px_2px_0px_#000] group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.jpg" alt="PlaySphere AI Logo" className="w-full h-full object-contain" />
+              <img src="/favicon.ico" alt="PlaySphere AI Logo" className="w-full h-full object-contain" />
             </div>
             <span
               className="gradient-text text-lg hidden sm:block"
@@ -64,23 +172,9 @@ export function Navbar() {
 
           {/* ── Desktop Nav Links ── */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] transition-all duration-150 border-2 rounded-sm',
-                    isActive
-                      ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
-                      : 'text-slate-400 border-transparent hover:text-yellow-400 hover:border-yellow-400/40'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            <Suspense fallback={<NavLinksFallback />}>
+              <NavLinksList />
+            </Suspense>
           </div>
 
           {/* ── Desktop Auth Actions ── */}
@@ -102,7 +196,7 @@ export function Navbar() {
                   href={dashboardHref}
                   id="navbar-dashboard-link"
                   className={cn(
-                    'flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.06em] transition-all duration-150 border-2 px-3 py-1.5 hover:-translate-x-0.5 hover:-translate-y-0.5',
+                    'flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.06em] transition-all duration-150 border-2 px-3 py-1.5 hover:-translate-x-0.5 hover:-translate-y-0.5 cursor-pointer',
                     dashboardAccent
                   )}
                 >
@@ -112,7 +206,7 @@ export function Navbar() {
                 <button
                   onClick={() => logOut()}
                   id="navbar-signout-btn"
-                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 bg-card border-2 border-black shadow-[2px_2px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#fb7185] active:translate-x-0 active:translate-y-0 transition-all duration-150"
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 bg-card border-2 border-black shadow-[2px_2px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#fb7185] active:translate-x-0 active:translate-y-0 cursor-pointer transition-all duration-150"
                   title="Sign Out"
                   aria-label="Sign Out"
                 >
@@ -124,14 +218,14 @@ export function Navbar() {
                 <Link
                   href="/auth/login"
                   id="navbar-signin-link"
-                  className="btn-secondary text-xs py-2 px-4 h-9 flex items-center"
+                  className="btn-secondary text-xs py-2 px-4 h-9 flex items-center cursor-pointer"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/auth/signup"
                   id="navbar-getstarted-link"
-                  className="btn-primary text-xs py-2 px-4 h-9 flex items-center"
+                  className="btn-primary text-xs py-2 px-4 h-9 flex items-center cursor-pointer"
                 >
                   Get Started
                 </Link>
@@ -142,7 +236,7 @@ export function Navbar() {
           {/* ── Mobile Toggle ── */}
           <button
             id="navbar-mobile-toggle"
-            className="md:hidden text-slate-300 hover:text-yellow-400 bg-card border-2 border-black p-2 shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_#facc15] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-150"
+            className="md:hidden text-slate-300 hover:text-yellow-400 bg-card border-2 border-black p-2 shadow-[2px_2px_0px_#000] hover:shadow-[3px_3px_0px_#facc15] hover:-translate-x-0.5 hover:-translate-y-0.5 cursor-pointer transition-all duration-150"
             onClick={() => setIsOpen(!isOpen)}
             aria-label={isOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isOpen}
@@ -159,30 +253,14 @@ export function Navbar() {
           role="menu"
         >
           <div className="px-4 py-4 space-y-2">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  role="menuitem"
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    'flex items-center text-xs font-black uppercase tracking-[0.1em] py-2.5 px-3 border-2 transition-all duration-150',
-                    isActive
-                      ? 'bg-yellow-400 text-black border-black shadow-[2px_2px_0px_#000]'
-                      : 'text-slate-400 border-transparent hover:text-yellow-400 hover:bg-card hover:border-yellow-400/30'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            <Suspense fallback={<NavLinksFallback mobile />}>
+              <NavLinksList mobile onClose={() => setIsOpen(false)} />
+            </Suspense>
 
             <div className="pt-3 border-t-2 border-black flex flex-col gap-2">
               <button
                 onClick={() => { toggleTheme(); setIsOpen(false); }}
-                className="btn-secondary text-xs justify-center py-2.5 flex items-center gap-2"
+                className="btn-secondary text-xs justify-center py-2.5 flex items-center gap-2 cursor-pointer"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
@@ -193,23 +271,23 @@ export function Navbar() {
                   <Link
                     href={dashboardHref}
                     onClick={() => setIsOpen(false)}
-                    className="btn-secondary text-xs justify-center py-2.5 flex items-center gap-2"
+                    className="btn-secondary text-xs justify-center py-2.5 flex items-center gap-2 cursor-pointer"
                   >
                     <DashboardIcon className="w-4 h-4" /> {dashboardLabel}
                   </Link>
                   <button
                     onClick={() => { logOut(); setIsOpen(false); }}
-                    className="btn-ghost text-xs justify-center text-rose-400 border-rose-500/60 py-2.5"
+                    className="btn-ghost text-xs justify-center text-rose-400 border-rose-500/60 py-2.5 cursor-pointer"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/auth/login" onClick={() => setIsOpen(false)} className="btn-secondary text-xs justify-center py-2.5">
+                  <Link href="/auth/login" onClick={() => setIsOpen(false)} className="btn-secondary text-xs justify-center py-2.5 cursor-pointer">
                     Sign In
                   </Link>
-                  <Link href="/auth/signup" onClick={() => setIsOpen(false)} className="btn-primary text-xs justify-center py-2.5">
+                  <Link href="/auth/signup" onClick={() => setIsOpen(false)} className="btn-primary text-xs justify-center py-2.5 cursor-pointer">
                     Get Started
                   </Link>
                 </>

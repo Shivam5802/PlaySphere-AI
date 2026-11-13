@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Plus, Calendar, BarChart3, Clock, Loader2, Trash2, Pencil, Eye, EyeOff, Ticket, Users, TrendingUp, User as UserIcon, AlertCircle } from 'lucide-react';
+import {
+  Building2, Plus, Calendar, BarChart3, Clock, Loader2, Trash2,
+  Pencil, Eye, EyeOff, Ticket, Users, TrendingUp, User as UserIcon,
+  AlertCircle, Phone, Mail, MapPin, CreditCard, ShieldCheck,
+  CheckCircle, Sparkles, Wallet, Landmark
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
 import {
   subscribeOwnerVenues,
   subscribeOwnerBookings,
@@ -41,6 +47,7 @@ const getProgressWidthClass = (pct: number) => {
 };
 
 export default function OwnerDashboardPage() {
+  const toast = useToast();
   const { user, profile, isApprovedOwner, isOwner } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,8 +77,19 @@ export default function OwnerDashboardPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bookingSubTab, setBookingSubTab] = useState<'requests' | 'confirmed' | 'tickets'>('requests');
 
-  // Profile states
+  // Expanded Owner Profile states
+  const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
+  const [profileAltPhone, setProfileAltPhone] = useState('');
+  const [profileBusinessName, setProfileBusinessName] = useState('');
+  const [profileGst, setProfileGst] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profileHours, setProfileHours] = useState('');
+  const [profileUpi, setProfileUpi] = useState('');
+  const [profileAccountHolder, setProfileAccountHolder] = useState('');
+  const [profileBankName, setProfileBankName] = useState('');
+  const [profileAccountNumber, setProfileAccountNumber] = useState('');
+  const [profileIfsc, setProfileIfsc] = useState('');
   const [profilePhotoBase64, setProfilePhotoBase64] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   
@@ -86,23 +104,46 @@ export default function OwnerDashboardPage() {
     if (profile) {
       setOwnerUpi(profile.upiId || '');
       setOwnerQrBase64(profile.qrCodeUrl || '');
+      setProfileName(profile.displayName || user?.displayName || '');
       setProfilePhone(profile.phoneNumber || '');
+      setProfileAltPhone(profile.alternatePhone || '');
+      setProfileBusinessName(profile.businessName || '');
+      setProfileGst(profile.gstNumber || '');
+      setProfileAddress(profile.businessAddress || '');
+      setProfileHours(profile.operatingHours || '06:00 AM - 11:00 PM (All 7 Days)');
+      setProfileUpi(profile.upiId || '');
+      setProfileAccountHolder(profile.accountHolderName || profile.displayName || '');
+      setProfileBankName(profile.bankName || '');
+      setProfileAccountNumber(profile.accountNumber || '');
+      setProfileIfsc(profile.ifscCode || '');
       setProfilePhotoBase64(profile.photoURL || '');
     }
-  }, [profile]);
+  }, [profile, user]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
     setProfileSaving(true);
     try {
       await updateUserProfile(user.uid, {
+        displayName: profileName,
         phoneNumber: profilePhone,
+        alternatePhone: profileAltPhone,
+        businessName: profileBusinessName,
+        gstNumber: profileGst,
+        businessAddress: profileAddress,
+        operatingHours: profileHours,
+        upiId: profileUpi,
+        accountHolderName: profileAccountHolder,
+        bankName: profileBankName,
+        accountNumber: profileAccountNumber,
+        ifscCode: profileIfsc,
         photoURL: profilePhotoBase64
       });
-      showSuccess('👤 Profile details saved!');
+      showSuccess('👤 Profile & payout details saved!');
+      toast.success('Owner profile & payout settings updated successfully!');
     } catch (err) {
       console.error('Error saving profile details:', err);
-      alert('Unable to save profile details. Please try again.');
+      toast.error('Unable to save profile details. Please try again.');
     } finally {
       setProfileSaving(false);
     }
@@ -1145,55 +1186,230 @@ export default function OwnerDashboardPage() {
 
         {/* ── TAB: PROFILE ───────────────────────────────────── */}
         {tab === 'profile' && (
-          <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000] max-w-2xl mx-auto">
-            <h2 className="font-display font-bold text-slate-200 text-xl mb-6 flex items-center gap-2">
-              <UserIcon className="w-6 h-6 text-cyan-400" /> Owner Profile Settings
-            </h2>
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Mobile Number *
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g. +91 9876543210"
-                  value={profilePhone}
-                  onChange={(e) => setProfilePhone(e.target.value)}
-                  className="w-full bg-slate-900 border-2 border-black rounded-md px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)]"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Players will use this to contact you for bookings.</p>
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Owner Header / Identity Summary Card */}
+            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+              <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+                <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                  {/* Avatar preview */}
+                  <div className="w-20 h-20 rounded-full border-3 border-black overflow-hidden bg-yellow-400 flex items-center justify-center shadow-[4px_4px_0px_#000] flex-shrink-0">
+                    {profilePhotoBase64 ? (
+                      <img
+                        src={profilePhotoBase64}
+                        alt={profileName || 'Owner'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '';
+                        }}
+                      />
+                    ) : (
+                      <span className="font-display font-black text-3xl text-black">
+                        {(profileName || profile?.displayName || 'V')[0]?.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                      <h2 className="font-display font-black text-2xl text-slate-100">
+                        {profileName || profile?.displayName || 'Sports Venue Owner'}
+                      </h2>
+                      <span className="bg-emerald-400 text-black text-[11px] font-mono font-black uppercase px-2 py-0.5 rounded border border-black flex items-center gap-1 shadow-[1px_1px_0px_#000]">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verified Owner
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-400 font-mono space-y-0.5">
+                      <div>Email: <strong className="text-primary">{profile?.email || user?.email}</strong></div>
+                      <div>UID: <code className="text-[11px] text-yellow-400">{user?.uid}</code></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 text-xs bg-slate-900/80 border-2 border-black p-3 rounded-md shadow-[3px_3px_0px_#000]">
+                  <div className="text-center px-2">
+                    <div className="font-display font-black text-xl text-yellow-400">{venues.length}</div>
+                    <div className="text-[11px] text-slate-400 uppercase font-bold">Venues</div>
+                  </div>
+                  <div className="w-px bg-black/50" />
+                  <div className="text-center px-2">
+                    <div className="font-display font-black text-xl text-cyan-400">{bookings.length}</div>
+                    <div className="text-[11px] text-slate-400 uppercase font-bold">Bookings</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 1: Personal & Business Identity */}
+            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
+                <Building2 className="w-5 h-5 text-yellow-400" />
+                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
+                  Business & Organization Details
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Owner Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rahul Sharma"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Displayed on player booking invoices & admin directory.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Business / Arena Entity Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. PlaySphere Arena LLP"
+                    value={profileBusinessName}
+                    onChange={(e) => setProfileBusinessName(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Registered firm or sports facility brand name.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    GSTIN / Business Registration (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 09AAAAA0000A1Z5"
+                    value={profileGst}
+                    onChange={(e) => setProfileGst(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Official taxation ID for commercial operations.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Office / Headquarters Address
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sector 4, Gomti Nagar, Lucknow"
+                    value={profileAddress}
+                    onChange={(e) => setProfileAddress(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Official physical correspondence address in Lucknow.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Contact & Operations */}
+            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
+                <Phone className="w-5 h-5 text-cyan-400" />
+                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
+                  Contact & Operational Hours
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Primary Mobile (WhatsApp) *
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 9876543210"
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Players receive this for booking confirmations.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Alternate / Emergency Number
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 9123456780"
+                    value={profileAltPhone}
+                    onChange={(e) => setProfileAltPhone(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Ground manager or caretaker line.</p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                    Facility Operating Hours
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 06:00 AM - 11:00 PM (All 7 Days)"
+                    value={profileHours}
+                    onChange={(e) => setProfileHours(e.target.value)}
+                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Overall arena operational timing window.</p>
+                </div>
+              </div>
+            </div>
+            {/* Section 4: Branding & Display Photo */}
+            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
+                <Sparkles className="w-5 h-5 text-pink-400" />
+                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
+                  Arena Branding & Photo
+                </h3>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Profile Photo URL (Optional)
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                  Profile Photo / Brand Logo URL
                 </label>
                 <input
                   type="url"
-                  placeholder="e.g. https://example.com/photo.jpg"
+                  placeholder="e.g. https://images.unsplash.com/photo-example.jpg"
                   value={profilePhotoBase64}
                   onChange={(e) => setProfilePhotoBase64(e.target.value)}
-                  className="w-full bg-slate-900 border-2 border-black rounded-md px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                  className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-pink-400 transition-all shadow-[2px_2px_0px_#000]"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">Provide a link to your display picture.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Provide a public direct link to your personal photo or arena logo.</p>
               </div>
+            </div>
 
-              <div className="flex justify-end pt-4 border-t border-black/30">
-                <button
-                  type="button"
-                  onClick={handleSaveProfile}
-                  disabled={profileSaving}
-                  className="btn-primary py-2 px-6 text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center gap-2"
-                >
-                  {profileSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    'Save Profile'
-                  )}
-                </button>
-              </div>
+            {/* Save Action Footer */}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-slate-400 font-semibold">
+                All changes sync in real-time across PlaySphere AI.
+              </span>
+
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={profileSaving}
+                className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-black uppercase text-sm border-2 border-black rounded shadow-[4px_4px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {profileSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>Saving Settings...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-black" />
+                    <span>Save Owner Profile & Payout Settings</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}

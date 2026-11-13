@@ -44,6 +44,7 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from '@/contexts/ThemeProvider';
+import { ToastProvider } from '@/contexts/ToastContext';
 
 export default function RootLayout({
   children,
@@ -78,9 +79,11 @@ export default function RootLayout({
       <body className="bg-canvas text-slate-200 antialiased transition-colors duration-300">
         <ThemeProvider>
           <AuthProvider>
-            <Navbar />
-            <main>{children}</main>
-            <Footer />
+            <ToastProvider>
+              <Navbar />
+              <main>{children}</main>
+              <Footer />
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
