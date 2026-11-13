@@ -10,6 +10,34 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useToast } from '@/contexts/ToastContext';
 
+function formatAuthError(err: any): string {
+  if (!err) return 'Authentication failed. Please try again.';
+  const code = err.code || '';
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+    return `Domain "${host}" is not authorized in Firebase Console. If using http://127.0.0.1:3000, please open http://localhost:3000 instead, or add "${host}" to Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+  }
+  if (code === 'auth/popup-blocked') {
+    return 'Sign-in popup was blocked by your browser. Please allow popups or try again.';
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Sign-in window was closed before completing.';
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return 'Another sign-in request is already in progress.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google Sign-In is not enabled in Firebase Console. Enable Google under Authentication -> Sign-in method.';
+  }
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return 'Invalid email or password. Please try again.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network request failed. Please check your internet connection.';
+  }
+  return err.message ? `${err.message} (${code || 'error'})` : 'Authentication failed. Please try again.';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const toast = useToast();
@@ -109,7 +137,7 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleLogin}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white text-black font-display font-black border-3 border-black rounded-md py-3 mb-6 shadow-[4px_4px_0px_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 bg-white text-black font-display font-black border-3 border-black rounded-md py-3 mb-6 shadow-[4px_4px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[6px_6px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 cursor-pointer"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />

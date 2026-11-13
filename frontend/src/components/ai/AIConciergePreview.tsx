@@ -202,7 +202,7 @@ export function AIConciergePreview({
     <div className="bg-card border-3 border-black overflow-hidden shadow-[6px_6px_0px_#000]">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3.5 border-b-2 border-black bg-purple-600 text-white">
-        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] flex-shrink-0">
+        <div className="w-9 h-9 rounded-md bg-yellow-400 border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] shrink-0">
           <Bot className="w-5 h-5 text-black" />
         </div>
         <div>
@@ -257,7 +257,7 @@ export function AIConciergePreview({
         ref={messagesContainerRef}
         className={cn(
           "overflow-y-auto p-4 space-y-4 scrollbar-hide scroll-smooth",
-          fullPage ? "h-[320px] md:h-[350px]" : "h-72"
+          fullPage ? "h-80 md:h-87.5" : "h-72"
         )}
       >
         {messages.map((msg, i) => (
@@ -280,7 +280,7 @@ export function AIConciergePreview({
                   </span>
                   <Link
                     href={`/venues/${msg.action.venueId}?date=${msg.action.date}&slot=${encodeURIComponent(msg.action.slot)}`}
-                    className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs px-4 py-2.5 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] transition-all no-underline"
+                    className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs px-4 py-2.5 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0px_#000] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0px_#000] transition-all no-underline"
                   >
                     ⚡ Continue Booking
                   </Link>
@@ -308,7 +308,7 @@ export function AIConciergePreview({
                     return (
                       <div
                         key={card.venueId}
-                        className="bg-card-nested border-2 border-black overflow-hidden shadow-[3px_3px_0px_#000] flex flex-col hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#000] transition-all"
+                        className="bg-card-nested border-2 border-black overflow-hidden shadow-[3px_3px_0px_#000] flex flex-col hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0px_#000] transition-all"
                       >
                         {/* Image */}
                         <div className="relative h-28 overflow-hidden bg-card-nested border-b border-black">
@@ -324,7 +324,7 @@ export function AIConciergePreview({
                               🏢
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                           <span className="absolute bottom-2 left-2 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-black bg-cyan-400 text-black">
                             {card.sport}
                           </span>
@@ -418,7 +418,7 @@ export function AIConciergePreview({
             key={prompt}
             onClick={() => sendMessage(prompt)}
             disabled={loading}
-            className="text-xs bg-card border-2 border-black px-3 py-1.5 text-muted-theme font-bold hover:bg-cyan-400 hover:text-black hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_#000] transition-all cursor-pointer disabled:opacity-50"
+            className="text-xs bg-card border-2 border-black px-3 py-1.5 text-muted-theme font-bold hover:bg-cyan-400 hover:text-black hover:-translate-x-px hover:-translate-y-px hover:shadow-[2px_2px_0px_#000] transition-all cursor-pointer disabled:opacity-50"
           >
             {prompt}
           </button>
@@ -441,7 +441,7 @@ export function AIConciergePreview({
           suppressHydrationWarning={true}
           onClick={() => sendMessage()}
           disabled={!input.trim() || loading}
-          className="w-11 h-11 rounded-md bg-purple-600 text-white font-bold border-2 border-black flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[2px_2px_0px_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] transition-all flex-shrink-0 cursor-pointer"
+          className="w-11 h-11 rounded-md bg-purple-600 text-white font-bold border-2 border-black flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[2px_2px_0px_#000] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0px_#000] active:translate-x-px active:translate-y-px active:shadow-[1px_1px_0px_#000] transition-all shrink-0 cursor-pointer"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white fill-white" />}
         </button>
