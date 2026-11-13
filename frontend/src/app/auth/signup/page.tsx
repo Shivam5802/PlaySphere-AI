@@ -38,6 +38,37 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
+function formatAuthError(err: any): string {
+  if (!err) return 'Authentication failed. Please try again.';
+  const code = err.code || '';
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+    return `Domain "${host}" is not authorized in Firebase Console. If using http://127.0.0.1:3000, please open http://localhost:3000 instead, or add "${host}" to Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+  }
+  if (code === 'auth/popup-blocked') {
+    return 'Sign-in popup was blocked by your browser. Please allow popups or try again.';
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Sign-in window was closed before completing.';
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return 'Another sign-in request is already in progress.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google Sign-In is not enabled in Firebase Console. Enable Google under Authentication -> Sign-in method.';
+  }
+  if (code === 'auth/email-already-in-use') {
+    return 'An account with this email already exists. Please log in instead.';
+  }
+  if (code === 'auth/weak-password') {
+    return 'Password must be at least 6 characters.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network request failed. Please check your internet connection.';
+  }
+  return err.message ? `${err.message} (${code || 'error'})` : 'Authentication failed. Please try again.';
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<Role>('player');
@@ -80,10 +111,15 @@ export default function SignupPage() {
     setGoogleLoading(true);
     setError('');
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
+      if (!user) {
+        // Redirect initiated or popup closed
+        return;
+      }
       // Redirect will be handled by the useEffect watching user / role states
-    } catch {
-      setError('Google sign-in failed.');
+    } catch (err: any) {
+      console.error('Google signup error:', err);
+      setError(formatAuthError(err));
     } finally {
       setGoogleLoading(false);
     }
