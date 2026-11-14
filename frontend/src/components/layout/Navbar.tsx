@@ -12,6 +12,7 @@ import { cn } from '@/shared/helpers/utils';
 const NAV_LINKS = [
   { href: '/venues', label: 'Discover' },
   { href: '/venues?tab=map', label: 'Map View' },
+  { href: '/squads', label: 'Find Squad' },
   { href: '/concierge', label: 'AI Concierge' },
   { href: '/about', label: 'About Us' },
 ];
@@ -32,6 +33,9 @@ function NavLinksList({
     }
     if (href === '/venues') {
       return pathname === '/venues' && searchParams.get('tab') !== 'map';
+    }
+    if (href === '/squads') {
+      return pathname === '/squads';
     }
     if (href === '/concierge') {
       return pathname === '/concierge';
@@ -117,17 +121,15 @@ export function Navbar() {
   const { user, isAdmin, isOwner } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Role-aware dashboard link
   const dashboardHref = isAdmin ? '/admin' : isOwner ? '/owner' : '/dashboard';
   const dashboardLabel = isAdmin ? 'Admin' : isOwner ? 'Owner Panel' : 'Dashboard';
   const DashboardIcon = isAdmin ? Shield : isOwner ? Building2 : LayoutDashboard;
 
-  // Role-specific accent colors
   const dashboardAccent = isAdmin
     ? 'border-purple-500 bg-purple-950/60 text-purple-300 hover:text-purple-200 shadow-[2px_2px_0px_rgba(168,85,247,0.5)]'
     : isOwner
     ? 'border-amber-500 bg-amber-950/60 text-amber-300 hover:text-amber-200 shadow-[2px_2px_0px_rgba(245,158,11,0.5)]'
-    : 'border-black bg-card text-slate-300 hover:text-white shadow-[2px_2px_0px_#000]';
+    : 'border-black bg-card text-slate-300 hover:text-black-500 shadow-[2px_2px_0px_#000]';
 
   return (
     <nav
@@ -196,7 +198,7 @@ export function Navbar() {
                   href={dashboardHref}
                   id="navbar-dashboard-link"
                   className={cn(
-                    'flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.06em] transition-all duration-150 border-2 px-3 py-1.5 hover:-translate-x-0.5 hover:-translate-y-0.5 cursor-pointer',
+                    'flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.06em] transition-all duration-150 border-2 px-3 py-1.5 cursor-pointer','hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#facc15] active:translate-x-0 active:translate-y-0',
                     dashboardAccent
                   )}
                 >

@@ -6,6 +6,9 @@ import {
   GoogleAuthProvider,
   signOut,
   updateProfile,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   User,
 } from 'firebase/auth';
 import {
@@ -60,7 +63,6 @@ export async function signInWithGoogle() {
 
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    // Google sign-in always defaults to 'player' role (unless email is whitelisted admin)
     try {
       await ensureUserProfile(result.user, undefined, 'player');
     } catch (profileErr) {
@@ -154,7 +156,6 @@ export async function signInWithEmail(email: string, password: string) {
     }
   }
 
-  // 2. Standard Firebase Auth sign-in attempt
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
     await ensureUserProfile(result.user);
@@ -165,7 +166,6 @@ export async function signInWithEmail(email: string, password: string) {
   } catch (err: unknown) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 2b. Check typo in domain (e.g. gamil.com <-> gmail.com)
     let alternateEmail: string | null = null;
     if (normalizedEmail.includes('@gmail.com')) {
       alternateEmail = normalizedEmail.replace('@gmail.com', '@gamil.com');
@@ -184,7 +184,6 @@ export async function signInWithEmail(email: string, password: string) {
       } catch {}
     }
 
-    // 3. Fallback: check if the Super Admin directly set a password override in Firestore
     try {
       const usersSnap = await getDocs(
         query(collection(db, 'users'), where('email', '==', normalizedEmail))
@@ -304,35 +303,29 @@ export async function ensureUserProfile(user: User, displayName?: string, role?:
       email: user.email || '',
       savedVenues: [],
       role: defaultRole,
-      // Owners start as pending approval; players and admins have no approvalStatus needed
       ...(defaultRole === 'owner' ? { approvalStatus: 'pending' as const } : {}),
       ...(user.photoURL ? { photoURL: user.photoURL } : {}),
       createdAt: serverTimestamp(),
     };
     await setDoc(userRef, profile);
   } else {
-    // If it exists, let's verify if there are legacy fields or missing fields
     const data = snap.data();
     const updates: Partial<UserProfile> = {};
 
-    // 1. If role is missing, or is 'user', map it to 'player' (or defaultRole/admin)
     if (isAdmin && data.role !== 'admin') {
       updates.role = 'admin';
     } else if (!data.role && isAdmin) {
       updates.role = defaultRole;
     }
 
-    // 2. If displayName is missing, fill it
     if (!data.displayName) {
       updates.displayName = displayName || user.displayName || 'Player';
     }
 
-    // 3. If email is missing, fill it
     if (!data.email) {
       updates.email = user.email || '';
     }
 
-    // 4. If savedVenues is missing, fill it
     if (!data.savedVenues) {
       updates.savedVenues = [];
     }
@@ -346,4 +339,43 @@ export async function ensureUserProfile(user: User, displayName?: string, role?:
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? (snap.data() as UserProfile) : null;
+}
+
+export async function changeUserPassword(currentPassword?: string, newPassword?: string) {
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters.');
+  }
+
+  if (!isFirebaseEnabled) {
+    return true;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('You must be logged in to change your password.');
+  }
+
+  const hasPasswordProvider = user.providerData.some((p: any) => p?.providerId === 'password');
+
+  if (hasPasswordProvider && currentPassword && user.email) {
+    try {
+      const cred = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, cred);
+    } catch (reauthErr: any) {
+      if (reauthErr.code === 'auth/wrong-password' || reauthErr.code === 'auth/invalid-credential') {
+        throw new Error('Current password does not match.');
+      }
+      throw reauthErr;
+    }
+  }
+
+  try {
+    await updatePassword(user, newPassword);
+    return true;
+  } catch (err: any) {
+    if (err.code === 'auth/requires-recent-login') {
+      throw new Error('This action is sensitive. Please log out and sign back in before changing your password.');
+    }
+    throw err;
+  }
 }

@@ -21,11 +21,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (savedTheme === 'light' || savedTheme === 'dark') {
       setTheme(savedTheme);
       document.documentElement.classList.toggle('light', savedTheme === 'light');
+      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     } else {
       const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
       const initialTheme = systemPrefersLight ? 'light' : 'dark';
       setTheme(initialTheme);
       document.documentElement.classList.toggle('light', initialTheme === 'light');
+      document.documentElement.classList.toggle('dark', initialTheme === 'dark');
     }
     setMounted(true);
   }, []);
@@ -35,6 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(nextTheme);
     localStorage.setItem('theme', nextTheme);
     document.documentElement.classList.toggle('light', nextTheme === 'light');
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
   };
 
   // We render a wrapper that holds visibility until mounted to prevent hydration flash

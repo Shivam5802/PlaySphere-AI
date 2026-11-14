@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
     uid = decodedToken.uid;
 
     // 2. Validate Admin role/email whitelist
-    const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+    const rawAdminList = `${process.env.NEXT_PUBLIC_ADMIN_EMAILS || ''},${process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''},${process.env.ADMIN_EMAILS || ''}`;
+    const adminEmails = rawAdminList
       .split(',')
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);

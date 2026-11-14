@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { GoogleMap, useLoadScript, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { MapPin } from 'lucide-react';
-import { formatCurrency, getSportEmoji } from '@/shared/helpers/utils';
+import { MapPin, ArrowRight, Eye, Shield, Sparkles, Bookmark, BookmarkCheck, Loader2, X } from 'lucide-react';
+import { formatCurrency, getSportEmoji, getSportImage, cn } from '@/shared/helpers/utils';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useTheme } from '@/contexts/ThemeProvider';
+import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
+import { toggleSavedVenue } from '@/backend/firebase/firestore';
 
-// Haversine formula to compute distance in km
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Earth's radius in km
+  const R = 6371; 
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -39,7 +42,7 @@ export interface MapItem {
   venueCode?: string;
   ownershipStatus?: 'pending' | 'approved' | 'rejected' | null;
   sportsRelevance?: string[];
-  markerColor?: string; // Precalculated marker color
+  markerColor?: string; 
 }
 
 interface VenueMapProps {
@@ -49,7 +52,6 @@ interface VenueMapProps {
 function MapSkeleton({ message = 'Loading realtime venue mapping and infrastructure layers...' }: { message?: string }) {
   return (
     <div className="w-full h-full bg-card relative overflow-hidden flex flex-col items-center justify-center p-6 min-h-[400px]">
-      {/* Self-contained shimmer keyframe style */}
       <style>{`
         @keyframes shimmer {
           0% {
@@ -68,19 +70,15 @@ function MapSkeleton({ message = 'Loading realtime venue mapping and infrastruct
         }
       `}</style>
       
-      {/* Neo-brutalist grid background */}
       <div className="absolute inset-0 opacity-5 pointer-events-none neo-grid-bg" />
       
-      {/* Animated Shimmer Overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent pointer-events-none animated-shimmer" />
 
       <div className="text-center z-10">
-        {/* Animated map pin */}
         <div className="relative mb-5 flex justify-center">
           <div className="w-14 h-14 bg-cyan-950/40 border-2 border-cyan-400 rounded-full flex items-center justify-center animate-bounce">
             <MapPin className="w-7 h-7 text-cyan-400" />
           </div>
-          {/* Pulse effect */}
           <div className="absolute -inset-1 border-2 border-cyan-400/30 rounded-full animate-ping opacity-45" />
         </div>
         
@@ -92,7 +90,6 @@ function MapSkeleton({ message = 'Loading realtime venue mapping and infrastruct
         </p>
       </div>
 
-      {/* Stats Skeleton Badge */}
       <div className="absolute top-3 left-3 bg-slate-900/90 border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold text-slate-400 shadow-[3px_3px_0px_0px_#000] flex items-center gap-1.5">
         <div className="w-2.5 h-2.5 bg-cyan-400 rounded-full animate-pulse" />
         Syncing infrastructure telemetry...
@@ -101,7 +98,6 @@ function MapSkeleton({ message = 'Loading realtime venue mapping and infrastruct
   );
 }
 
-// Sleek dark mode map style
 const darkMapStyles = [
   { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
@@ -113,7 +109,6 @@ const darkMapStyles = [
   { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#334155' }] },
 ];
 
-// Clean, high-contrast light mode map style
 const lightMapStyles = [
   { elementType: 'geometry', stylers: [{ color: '#f8fafc' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
@@ -142,7 +137,33 @@ function ActiveVenueMap({ items }: VenueMapProps) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const hasPannedToUser = useRef(false);
 
-  // Reactively reapply style options when theme toggles
+  const { user, profile } = useAuth();
+  const toast = useToast();
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const handleSaveToggle = async (e: React.MouseEvent, itemId: string, itemName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.info('Please log in to save and bookmark venues!');
+      return;
+    }
+    const isSaved = profile?.savedVenues?.includes(itemId) ?? false;
+    setSavingId(itemId);
+    try {
+      await toggleSavedVenue(user.uid, itemId, isSaved);
+      if (isSaved) {
+        toast.info(`Removed "${itemName}" from saved venues`);
+      } else {
+        toast.success(`Saved "${itemName}" to your favorites! ❤️`);
+      }
+    } catch (err: any) {
+      toast.error('Failed to update saved venue');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   useEffect(() => {
     if (mapRef.current) {
       mapRef.current.setOptions({ styles: isLight ? lightMapStyles : darkMapStyles });
@@ -157,12 +178,9 @@ function ActiveVenueMap({ items }: VenueMapProps) {
     }
   }, [userLocation]);
 
-  // Apply vertical and horizontal coordinate micro-offsets for overlapping pins
-  // Filter out invalid coordinates to prevent crashes, and precalculate colors
   const adjustedItems = useMemo(() => {
     const coordsMap = new Map<string, number>();
     
-    // Filter malformed/missing coordinates
     const validItems = items.filter(
       (item) =>
         item?.coordinates &&
@@ -178,7 +196,6 @@ function ActiveVenueMap({ items }: VenueMapProps) {
       const count = coordsMap.get(key) || 0;
       coordsMap.set(key, count + 1);
 
-      // Precalculate marker color (Marketplace = Cyan, Infrastructure = Slate, Landmark = Amber)
       const markerColor =
         item.mapType === 'marketplace'
           ? '#22d3ee'
@@ -189,7 +206,6 @@ function ActiveVenueMap({ items }: VenueMapProps) {
       let finalCoords = { lat, lng };
 
       if (count > 0) {
-        // Spiral offsets based on duplicate index to spread markers out in 8 directions
         const angle = count * ((2 * Math.PI) / 8);
         const radius = 0.00008 * (1 + Math.floor(count / 8) * 0.5);
         finalCoords = {
@@ -206,7 +222,6 @@ function ActiveVenueMap({ items }: VenueMapProps) {
     });
   }, [items]);
 
-  // Count nearby sports facilities within 3km of selected landmark
   const nearbySportsCount = useMemo(() => {
     if (!selectedItem || selectedItem.mapType !== 'landmark' || !selectedItem.coordinates) return 0;
     const { lat, lng } = selectedItem.coordinates;
@@ -288,21 +303,19 @@ function ActiveVenueMap({ items }: VenueMapProps) {
           />
         ))}
 
-        {/* User Location Marker */}
         {userLocation && (
           <MarkerF
             position={userLocation}
             icon={{
               path: window.google.maps.SymbolPath.CIRCLE,
-              fillColor: '#3b82f6', // blue-500
+              fillColor: '#3b82f6', 
               fillOpacity: 1,
               strokeColor: '#ffffff',
               strokeWeight: 2,
               scale: 8,
             }}
-            zIndex={1000} // Ensure it's on top of other markers
+            zIndex={1000} 
             onClick={() => {
-              // Optionally show an info window for user location
             }}
           />
         )}
@@ -316,45 +329,128 @@ function ActiveVenueMap({ items }: VenueMapProps) {
               disableAutoPan: false,
             }}
           >
-            {/* Custom popup UI - exact same modern cards as Mapbox v8 */}
-            <div className="rounded-lg overflow-hidden bg-card border-2 border-black shadow-[4px_4px_0px_#000] min-w-[220px] max-w-[280px] text-primary">
-              {/* Image Header (if applicable) */}
-              {selectedItem.mapType !== 'landmark' && selectedItem.imageUrl && (
-                <div className="relative h-28 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div className="rounded-lg overflow-hidden bg-card border-3 border-black shadow-[6px_6px_0px_#000] min-w-[240px] max-w-[290px] text-primary relative">
+              {selectedItem.mapType !== 'landmark' && (
+                <div className="relative h-28 overflow-hidden bg-slate-900">
                   <img
-                    src={selectedItem.imageUrl}
+                    src={selectedItem.imageUrl || getSportImage(selectedItem.sport || 'football', selectedItem.id)}
                     alt={selectedItem.name}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+
                   {selectedItem.sport && (
-                    <div className="absolute bottom-2 left-2 text-xs font-bold px-2 py-0.5 rounded border border-black bg-[#22d3ee] text-black">
+                    <div className="absolute bottom-2 left-2 text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded border border-black bg-cyan-400 text-black shadow-[1px_1px_0px_#000]">
                       {getSportEmoji(selectedItem.sport)} {selectedItem.sport}
                     </div>
                   )}
+
                   {selectedItem.mapType === 'infrastructure' ? (
-                    <div className="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded border border-black bg-slate-700 text-slate-300">
+                    <div className="absolute top-2 left-2 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border border-black bg-slate-800 text-slate-200 shadow-[1px_1px_0px_#000]">
                       Mapped
                     </div>
-                  ) : !selectedItem.available && (
-                    <div className="absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded border border-black bg-[#f43f5e] text-black">
+                  ) : !selectedItem.available ? (
+                    <div className="absolute top-2 left-2 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border border-black bg-rose-500 text-black shadow-[1px_1px_0px_#000]">
                       Unavailable
                     </div>
-                  )}
+                  ) : null}
+
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20">
+                    <button
+                      type="button"
+                      onClick={(e) => handleSaveToggle(e, selectedItem.id, selectedItem.name)}
+                      disabled={savingId === selectedItem.id}
+                      title={profile?.savedVenues?.includes(selectedItem.id) ? 'Remove from saved' : 'Save venue to favorites'}
+                      className={cn(
+                        'w-8 h-8 rounded border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5',
+                        profile?.savedVenues?.includes(selectedItem.id)
+                          ? 'bg-yellow-400 text-black hover:bg-yellow-300'
+                          : isLight
+                          ? 'bg-white text-black hover:bg-yellow-100'
+                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                      )}
+                    >
+                      {savingId === selectedItem.id ? (
+                        <Loader2 className={cn("w-4 h-4 animate-spin", profile?.savedVenues?.includes(selectedItem.id) ? "text-black" : isLight ? "text-black" : "text-white")} />
+                      ) : profile?.savedVenues?.includes(selectedItem.id) ? (
+                        <BookmarkCheck className="w-4 h-4 stroke-[2.5] text-black fill-black/20" />
+                      ) : (
+                        <Bookmark className={cn("w-4 h-4 stroke-[2.5]", isLight ? "text-black" : "text-white")} />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedItem(null);
+                      }}
+                      title="Close popup"
+                      className={cn(
+                        'w-8 h-8 rounded border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5',
+                        isLight
+                          ? 'bg-white text-black hover:bg-rose-500 hover:text-white'
+                          : 'bg-slate-900 text-white hover:bg-rose-500 hover:text-white'
+                      )}
+                    >
+                      <X className={cn("w-4 h-4 stroke-[3]", isLight ? "text-black" : "text-white")} />
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Popup Content */}
-              <div className="p-3">
-                <h4 className="font-extrabold text-sm mb-1 font-sans text-primary">
-                  {selectedItem.name}
-                </h4>
-                <div className="text-muted-theme text-xs mb-2 flex items-center gap-1 font-medium">
+              <div className="p-3.5">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <h4 className="font-extrabold text-sm font-sans text-primary leading-tight">
+                    {selectedItem.name}
+                  </h4>
+                  {selectedItem.mapType === 'landmark' && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveToggle(e, selectedItem.id, selectedItem.name)}
+                        disabled={savingId === selectedItem.id}
+                        title={profile?.savedVenues?.includes(selectedItem.id) ? 'Remove from saved' : 'Save to favorites'}
+                        className={cn(
+                          'w-8 h-8 shrink-0 rounded border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5',
+                          profile?.savedVenues?.includes(selectedItem.id)
+                            ? 'bg-yellow-400 text-black hover:bg-yellow-300'
+                            : isLight
+                            ? 'bg-white text-black hover:bg-yellow-100'
+                            : 'bg-slate-900 text-white hover:bg-slate-800'
+                        )}
+                      >
+                        {savingId === selectedItem.id ? (
+                          <Loader2 className={cn("w-4 h-4 animate-spin", profile?.savedVenues?.includes(selectedItem.id) ? "text-black" : isLight ? "text-black" : "text-white")} />
+                        ) : profile?.savedVenues?.includes(selectedItem.id) ? (
+                          <BookmarkCheck className="w-4 h-4 stroke-[2.5] text-black fill-black/20" />
+                        ) : (
+                          <Bookmark className={cn("w-4 h-4 stroke-[2.5]", isLight ? "text-black" : "text-white")} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedItem(null);
+                        }}
+                        title="Close popup"
+                        className={cn(
+                          'w-8 h-8 rounded border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_#000] cursor-pointer transition-colors active:translate-x-0.5 active:translate-y-0.5',
+                          isLight
+                            ? 'bg-white text-black hover:bg-rose-500 hover:text-white'
+                            : 'bg-slate-900 text-white hover:bg-rose-500 hover:text-white'
+                        )}
+                      >
+                        <X className={cn("w-4 h-4 stroke-[3]", isLight ? "text-black" : "text-white")} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="text-muted-theme text-xs mb-2.5 flex items-center gap-1 font-medium">
                   <span>📍</span> {selectedItem.area}
                 </div>
 
-                {/* Layer Specific Content */}
                 {selectedItem.mapType === 'marketplace' && (
                   <>
                     <div className="flex justify-between items-center mb-2.5">
@@ -365,56 +461,98 @@ function ActiveVenueMap({ items }: VenueMapProps) {
                         ★ {selectedItem.rating || 0}
                       </span>
                     </div>
-                    <a
-                      href={`/venues/${selectedItem.id}`}
-                      className="block text-center bg-[#22d3ee] text-black font-bold text-xs py-2 px-3 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] no-underline hover:bg-cyan-300 transition-colors"
-                    >
-                      View & Book →
-                    </a>
+
+                    <div className="mt-3 pt-3 border-t-2 border-black">
+                      <Link
+                        href={`/venues/${selectedItem.id}`}
+                        className="btn-primary w-full flex items-center justify-center gap-1.5 py-2.5 px-3 text-black font-black text-xs uppercase tracking-wider rounded-sm shadow-[3px_3px_0px_#000] no-underline cursor-pointer"
+                      >
+                        <span>View & Book</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </Link>
+                    </div>
                   </>
                 )}
 
                 {selectedItem.mapType === 'infrastructure' && (
                   <>
-                    <div className="bg-slate-900 border border-slate-700/60 p-1.5 rounded text-[11px] mb-2 text-slate-300 font-mono">
-                      Code: {selectedItem.venueCode || 'N/A'}
-                      <br />
-                      Status: {selectedItem.ownershipStatus === 'approved' ? 'Ownership Verified' : selectedItem.ownershipStatus === 'pending' ? 'Verification Pending' : 'Ownership Unverified'}
+                    <div className="bg-card-nested border-2 border-black p-2 rounded-sm text-[11px] mb-2 text-primary font-mono shadow-[2px_2px_0px_#000]">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-secondary font-bold">CODE:</span>
+                        <span className="font-bold">{selectedItem.venueCode || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-secondary font-bold">STATUS:</span>
+                        <span
+                          className={cn(
+                            'px-1.5 py-0.5 text-[9px] font-black uppercase rounded border border-black shadow-[1px_1px_0px_#000]',
+                            selectedItem.ownershipStatus === 'approved'
+                              ? 'bg-emerald-400 text-black'
+                              : selectedItem.ownershipStatus === 'pending'
+                              ? 'bg-amber-400 text-black'
+                              : 'bg-rose-500 text-white'
+                          )}
+                        >
+                          {selectedItem.ownershipStatus === 'approved'
+                            ? 'Verified'
+                            : selectedItem.ownershipStatus === 'pending'
+                            ? 'Pending'
+                            : 'Unverified'}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="text-rose-400 font-bold text-xs bg-rose-950/40 border border-rose-500/30 px-2 py-1 rounded text-center mb-2.5">
+                    <div className="text-rose-500 font-black text-[10px] uppercase tracking-wider bg-rose-950/20 border border-rose-500/30 px-2 py-1 rounded text-center">
                       Booking Unavailable
                     </div>
 
-                    {selectedItem.ownershipStatus !== 'approved' && selectedItem.ownershipStatus !== 'pending' ? (
-                      <a
-                        href={`/owner?tab=verify&code=${selectedItem.venueCode}`}
-                        className="block text-center bg-yellow-400 text-black font-bold text-xs py-2 px-3 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] no-underline hover:bg-yellow-300 transition-colors"
-                      >
-                        Verify Ownership →
-                      </a>
-                    ) : (
-                      <a
-                        href={`/venues/${selectedItem.id}?infra=true`}
-                        className="block text-center bg-[#22d3ee] text-black font-bold text-xs py-2 px-3 rounded-md border-2 border-black shadow-[2px_2px_0px_#000] no-underline hover:bg-cyan-300 transition-colors"
-                      >
-                        View Details →
-                      </a>
-                    )}
+                    <div className="mt-3 pt-3 border-t-2 border-black">
+                      {selectedItem.ownershipStatus !== 'approved' && selectedItem.ownershipStatus !== 'pending' ? (
+                        <Link
+                          href={`/owner?tab=verify&code=${selectedItem.venueCode}`}
+                          className="btn-primary w-full flex items-center justify-center gap-1.5 py-2.5 px-3 text-black font-black text-xs uppercase tracking-wider rounded-sm shadow-[3px_3px_0px_#000] no-underline cursor-pointer"
+                        >
+                          <Shield className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Verify Ownership</span>
+                          <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/venues/${selectedItem.id}?infra=true`}
+                          className="btn-secondary w-full flex items-center justify-center gap-1.5 py-2.5 px-3 text-black font-black text-xs uppercase tracking-wider rounded-sm shadow-[3px_3px_0px_#000] no-underline cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>View Details</span>
+                          <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                        </Link>
+                      )}
+                    </div>
                   </>
                 )}
 
                 {selectedItem.mapType === 'landmark' && (
                   <>
-                    <div className="bg-amber-950/40 border border-amber-500/30 p-2 rounded text-xs mb-2">
-                      <span className="text-[#fbbf24] font-bold">★ Sports Hub Area</span>
-                      <div className="text-slate-300 mt-1">
-                        Nearby sports facilities: <strong className="text-slate-200">{nearbySportsCount} found</strong> within 3km.
+                    <div className="bg-amber-950/40 border-2 border-amber-500/40 p-2.5 rounded-sm text-xs mb-2">
+                      <span className="text-[#fbbf24] font-black uppercase text-[11px] flex items-center gap-1">
+                        ★ Sports Hub Area
+                      </span>
+                      <div className="text-slate-300 mt-1 font-semibold text-[11px]">
+                        Nearby sports facilities: <strong className="text-yellow-400">{nearbySportsCount} found</strong> within 3km.
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-normal mb-0">
+                    <p className="text-[11px] text-slate-400 leading-normal mb-2 font-medium">
                       Discovery Helper: Try searching &quot;near {selectedItem.name}&quot; in the AI Concierge to discover and book available slots!
                     </p>
+                    <div className="mt-3 pt-3 border-t-2 border-black">
+                      <Link
+                        href={`/concierge?q=near+${encodeURIComponent(selectedItem.name)}`}
+                        className="btn-primary w-full flex items-center justify-center gap-1.5 py-2.5 px-3 text-black font-black text-[11px] uppercase tracking-wider rounded-sm shadow-[3px_3px_0px_#000] no-underline cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Find Venues Near Here</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </Link>
+                    </div>
                   </>
                 )}
               </div>
@@ -423,7 +561,6 @@ function ActiveVenueMap({ items }: VenueMapProps) {
         )}
       </GoogleMap>
 
-      {/* Map Stats Badge */}
       <div className="absolute top-3 left-3 bg-card border-2 border-black rounded-md px-3 py-1.5 text-xs font-bold text-primary shadow-[3px_3px_0px_0px_#000] pointer-events-none">
         <MapPin className="w-3.5 h-3.5 inline mr-1.5 text-cyan-400" />
         {activeMarketplaceCount} active venues ({mappedInfraCount} mapped)
