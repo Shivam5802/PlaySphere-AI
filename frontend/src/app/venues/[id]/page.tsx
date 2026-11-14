@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Star, Clock, ArrowLeft, Calendar, Check, Loader2, Shield, Zap, Ticket, ShieldCheck } from 'lucide-react';
+import { MapPin, Star, Clock, ArrowLeft, Calendar, Check, Loader2, Shield, Zap, Ticket, ShieldCheck, Bookmark, BookmarkCheck } from 'lucide-react';
 import { Venue, ContactPerson } from '@/shared/types';
 import { formatCurrency, getSportEmoji, getSportColor, getSkillBadgeColor, cn, getSportImage } from '@/shared/helpers/utils';
 import { generateTimeSlots, isSlotInPast } from '@/shared/helpers/pricing';
 import { useAuth } from '@/contexts/AuthProvider';
-import { createBooking, getVenueBookings, checkSlotAvailability, getVenueById, getInfrastructureById, getUserProfile } from '@/backend/firebase/firestore';
+import { useToast } from '@/contexts/ToastContext';
+import { createBooking, getVenueBookings, checkSlotAvailability, getVenueById, getInfrastructureById, getUserProfile, toggleSavedVenue } from '@/backend/firebase/firestore';
 
 const MIN_DATE = new Date().toISOString().split('T')[0];
 const MAX_DATE = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -18,11 +19,37 @@ export default function VenueDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile } = useAuth();
+  const toast = useToast();
   const [venue, setVenue] = useState<Venue | null>(null);
   const [venueLoading, setVenueLoading] = useState(true);
   const [isInfra, setIsInfra] = useState(searchParams.get('infra') === 'true');
   const [ownerContact, setOwnerContact] = useState<ContactPerson | null>(null);
   const [staffContact, setStaffContact] = useState<ContactPerson | null>(null);
+  const [savingBookmark, setSavingBookmark] = useState(false);
+
+  const isSaved = profile?.savedVenues?.includes(id) || false;
+
+  const handleSaveToggle = async () => {
+    if (!user) {
+      toast.info('Please log in to bookmark venues!');
+      router.push('/auth/login');
+      return;
+    }
+    setSavingBookmark(true);
+    try {
+      await toggleSavedVenue(user.uid, id, isSaved);
+      if (isSaved) {
+        toast.info(`Removed "${venue?.name || 'Venue'}" from saved venues`);
+      } else {
+        toast.success(`Saved "${venue?.name || 'Venue'}" to your favorites!`);
+      }
+    } catch (err: any) {
+      console.error('Error toggling saved venue:', err);
+      toast.error('Unable to save venue. Please try again.');
+    } finally {
+      setSavingBookmark(false);
+    }
+  };
 
   const [selectedDate, setSelectedDate] = useState(searchParams.get('date') || MIN_DATE);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(searchParams.get('slot') || null);
@@ -249,25 +276,47 @@ export default function VenueDetailPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={getSportImage(venue.sport, venue.id)} alt={venue.name} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 max-w-7xl mx-auto">
-          <Link href="/venues" className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-4 text-sm transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Back to Venues
-          </Link>
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            {isInfra ? (
-              <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-md mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black bg-slate-900 text-slate-300 font-bold">
-                🏛️ MAPPED INFRASTRUCTURE
-              </div>
-            ) : (
-              <div className={cn("inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-md mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black", sportColor)}>
-                {getSportEmoji(venue.sport)} {venue.sport.charAt(0).toUpperCase() + venue.sport.slice(1)}
-              </div>
+            <Link href="/venues" className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-4 text-sm transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Back to Venues
+            </Link>
+            <div>
+              {isInfra ? (
+                <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-md mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black bg-slate-900 text-slate-300 font-bold">
+                  🏛️ MAPPED INFRASTRUCTURE
+                </div>
+              ) : (
+                <div className={cn("inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-md mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black", sportColor)}>
+                  {getSportEmoji(venue.sport)} {venue.sport.charAt(0).toUpperCase() + venue.sport.slice(1)}
+                </div>
+              )}
+            </div>
+            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight [text-shadow:2px_2px_0px_#000]">{venue.name}</h1>
+            <div className="flex items-center gap-3 mt-2 text-slate-300 text-sm">
+              <MapPin className="w-4 h-4 text-cyan-400" /> {venue.area}
+            </div>
+          </div>
+
+          {/* Bookmark / Save Venue Button */}
+          <button
+            onClick={handleSaveToggle}
+            disabled={savingBookmark}
+            aria-label={isSaved ? 'Unsave venue' : 'Save venue'}
+            className={cn(
+              "px-4 py-2.5 border-2 border-black rounded-sm font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_#000] flex items-center gap-2 transition-all cursor-pointer shrink-0 disabled:opacity-50",
+              isSaved
+                ? "bg-cyan-400 text-black hover:bg-cyan-300"
+                : "bg-card text-primary hover:bg-card-hover"
             )}
-          </div>
-          <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight [text-shadow:2px_2px_0px_#000]">{venue.name}</h1>
-          <div className="flex items-center gap-3 mt-2 text-slate-300 text-sm">
-            <MapPin className="w-4 h-4 text-cyan-400" /> {venue.area}
-          </div>
+          >
+            {isSaved ? (
+              <BookmarkCheck className="w-4 h-4 stroke-[2.5]" />
+            ) : (
+              <Bookmark className="w-4 h-4 stroke-[2.5]" />
+            )}
+            <span>{isSaved ? 'Saved to Favorites' : 'Save Venue'}</span>
+          </button>
         </div>
       </div>
 

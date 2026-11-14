@@ -6,6 +6,7 @@ import { Venue } from '@/shared/types';
 import { cn, formatCurrency, getSportEmoji, getSportColor, getSkillBadgeColor, getSportImage } from '@/shared/helpers/utils';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useToast } from '@/contexts/ToastContext';
 import { toggleSavedVenue } from '@/backend/firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -16,6 +17,7 @@ interface VenueCardProps {
 
 export function VenueCard({ venue, className }: VenueCardProps) {
   const { user, profile } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
@@ -36,15 +38,21 @@ export function VenueCard({ venue, className }: VenueCardProps) {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
+      toast.info('Please log in to bookmark venues!');
       router.push('/auth/login');
       return;
     }
     setSaving(true);
     try {
       await toggleSavedVenue(user.uid, venue.id, isSaved);
-    } catch (err) {
+      if (isSaved) {
+        toast.info(`Removed "${venue.name}" from saved venues`);
+      } else {
+        toast.success(`Saved "${venue.name}" to your favorites! ❤️`);
+      }
+    } catch (err: any) {
       console.error('Error toggling saved venue:', err);
-      alert('Unable to save venue. Please try again.');
+      toast.error('Unable to save venue. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -113,11 +121,16 @@ export function VenueCard({ venue, className }: VenueCardProps) {
           onClick={handleSaveToggle}
           disabled={saving}
           aria-label={isSaved ? 'Unsave venue' : 'Save venue'}
-          className="absolute top-3 right-3 w-8 h-8 bg-card border-2 border-black flex items-center justify-center text-slate-400 hover:text-cyan-500 hover:shadow-[3px_3px_0px_#22d3ee] transition-all duration-150 disabled:opacity-50 shadow-[2px_2px_0px_#000]"
+          className={cn(
+            "absolute top-3 right-3 w-8 h-8 border-2 border-black flex items-center justify-center transition-all duration-150 disabled:opacity-50 shadow-[2px_2px_0px_#000] cursor-pointer",
+            isSaved
+              ? "bg-yellow-400 text-black hover:bg-yellow-300"
+              : "bg-card text-primary hover:text-cyan-400 hover:border-cyan-400"
+          )}
         >
           {isSaved
-            ? <BookmarkCheck className="w-4 h-4 text-cyan-500" />
-            : <Bookmark className="w-4 h-4" />
+            ? <BookmarkCheck className="w-4 h-4 text-black stroke-[2.5]" />
+            : <Bookmark className="w-4 h-4 stroke-[2]" />
           }
         </button>
       </div>
@@ -208,9 +221,10 @@ export function VenueCard({ venue, className }: VenueCardProps) {
                 </span>
                 <Link
                   href={`/venues/${venue.id}?infra=true`}
-                  className="text-[11px] font-black text-cyan-500 hover:text-cyan-600 flex items-center gap-1 uppercase tracking-[0.06em]"
+                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider py-1 px-2.5 bg-yellow-400 hover:bg-yellow-300 text-black border-2 border-black rounded-sm shadow-[1.5px_1.5px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0 transition-all cursor-pointer no-underline"
                 >
-                  View Details <ArrowRight className="w-3 h-3" />
+                  <span>View Details</span>
+                  <ArrowRight className="w-3 h-3 stroke-[2.5]" />
                 </Link>
               </div>
 

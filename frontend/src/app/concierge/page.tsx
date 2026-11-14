@@ -40,7 +40,6 @@ export default function ConciergePage() {
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
 
-  // Initialize a fresh new chat every time the user visits the page
   useEffect(() => {
     const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
     let savedSessions: ChatSession[] = [];
@@ -58,7 +57,6 @@ export default function ConciergePage() {
 
     setSessions(savedSessions);
 
-    // Always start with a fresh new chat session on entry
     const freshId = `session_${Date.now()}`;
     const freshSession: ChatSession = {
       id: freshId,
@@ -78,7 +76,6 @@ export default function ConciergePage() {
     setActiveSession(freshSession);
   }, [user?.uid]);
 
-  // Handle messages update from AIConciergePreview
   const handleMessagesChange = useCallback((newMessages: ChatMessageItem[]) => {
     setActiveSession((currentActive) => {
       if (!currentActive) return null;
@@ -86,7 +83,6 @@ export default function ConciergePage() {
       const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
       const hasUserMessage = newMessages.some((m) => m.role === 'user');
 
-      // Title derived from first user query
       const firstUserMsg = newMessages.find((m) => m.role === 'user');
       let title = currentActive.title;
       if (firstUserMsg && currentActive.title === 'New Conversation') {
@@ -101,7 +97,6 @@ export default function ConciergePage() {
         updatedAt: Date.now(),
       };
 
-      // Only save in history if user has engaged with the conversation
       if (hasUserMessage) {
         setSessions((prev) => {
           const exists = prev.some((s) => s.id === updatedSession.id);
@@ -121,7 +116,6 @@ export default function ConciergePage() {
     });
   }, [user]);
 
-  // Start a fresh new chat session
   const handleStartNewChat = () => {
     const freshId = `session_${Date.now()}`;
     const freshSession: ChatSession = {
@@ -142,13 +136,11 @@ export default function ConciergePage() {
     setActiveSession(freshSession);
   };
 
-  // Switch to an existing chat session from history
   const handleSelectSession = (session: ChatSession) => {
     setActiveSessionId(session.id);
     setActiveSession(session);
   };
 
-  // Delete a session
   const handleDeleteSession = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
@@ -163,7 +155,6 @@ export default function ConciergePage() {
     }
   };
 
-  // Clear all chat history
   const handleClearAllHistory = () => {
     const storageKey = user ? `playsphere_chats_${user.uid}` : 'playsphere_chats_guest';
     setSessions([]);
@@ -173,7 +164,6 @@ export default function ConciergePage() {
     handleStartNewChat();
   };
 
-  // Formatter for timestamp
   const formatSessionTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -187,21 +177,7 @@ export default function ConciergePage() {
   return (
     <div className="min-h-screen bg-canvas py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
-        {/* ── Top Header ────────────────────────────────────────── */}
-        <div className="mb-10 text-center">
-          <h1
-            className="text-4xl sm:text-6xl font-black uppercase tracking-[0.04em] text-primary mb-3"
-            style={{ fontFamily: 'var(--font-bebas), sans-serif', textShadow: '3px 3px 0px #000' }}
-          >
-            PlaySphere <span className="gradient-text">AI Concierge</span>
-          </h1>
-
-          <p className="text-slate-500 max-w-2xl mx-auto font-semibold text-sm sm:text-base">
-            Your conversational sports copilot for Lucknow. Find courts, compare pricing, check rules and book instantly using natural language.
-          </p>
-        </div>
-
-        {/* ── Loading State ───────────────────────────────────────── */}
+        <div className="mb-10 text-center"></div>
         {loading ? (
           <div className="bg-card border-3 border-black p-12 text-center rounded-sm shadow-[6px_6px_0px_#000] max-w-xl mx-auto">
             <div className="inline-block animate-spin text-yellow-400 mb-4">
@@ -215,25 +191,10 @@ export default function ConciergePage() {
             </p>
           </div>
         ) : !user ? (
-          /* ── NOT LOGGED IN: Authentication Gate ─────────────────── */
           <div className="max-w-3xl mx-auto">
             <div className="bg-card border-3 border-black rounded-sm shadow-[8px_8px_0px_#000] overflow-hidden">
-              {/* Banner */}
-              <div className="bg-yellow-400 text-black px-6 py-4 border-b-3 border-black flex items-center justify-between">
-                <div className="flex items-center gap-2.5 font-black uppercase text-sm tracking-wider">
-                  <Lock className="w-5 h-5 stroke-[2.5px]" />
-                  <span>Member Authentication Required</span>
-                </div>
-                <span className="text-[11px] font-mono font-bold bg-black text-white px-2.5 py-0.5 rounded-sm">
-                  LOCKED
-                </span>
-              </div>
-
               <div className="p-8 sm:p-10">
                 <div className="text-center max-w-xl mx-auto mb-8">
-                  <div className="w-16 h-16 rounded-full bg-yellow-400/20 border-3 border-black mx-auto mb-5 flex items-center justify-center shadow-[3px_3px_0px_#000]">
-                    <Bot className="w-8 h-8 text-yellow-400" />
-                  </div>
                   <h2
                     className="text-3xl sm:text-4xl font-black uppercase text-primary mb-3"
                     style={{ fontFamily: 'var(--font-bebas), sans-serif' }}
@@ -241,11 +202,10 @@ export default function ConciergePage() {
                     Unlock Full AI Concierge Access
                   </h2>
                   <p className="text-slate-400 text-sm sm:text-base font-semibold leading-relaxed">
-                    To use the interactive AI Concierge for direct slot reservations, personalized history, and autonomous booking suggestions, please sign in to your PlaySphere account.
+                    To use the interactive AI Concierge for direct slot reservations, personalized history and autonomous booking suggestions, please sign in to your PlaySphere account.
                   </p>
                 </div>
 
-                {/* Two Action Buttons: Login vs Try Free Demo */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
                   <Link
                     href="/auth/login?redirect=/concierge"
@@ -265,7 +225,6 @@ export default function ConciergePage() {
                   </Link>
                 </div>
 
-                {/* Don't have an account */}
                 <div className="text-center text-xs text-slate-500 font-semibold mb-8">
                   Don&apos;t have an account yet?{' '}
                   <Link
@@ -276,7 +235,6 @@ export default function ConciergePage() {
                   </Link>
                 </div>
 
-                {/* Feature breakdown */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t-2 border-black/30">
                   <div className="bg-card-nested border-2 border-black p-4 rounded-sm shadow-[2px_2px_0px_#000]">
                     <div className="w-8 h-8 rounded bg-cyan-400 text-black border border-black flex items-center justify-center mb-2.5 font-bold">
@@ -286,7 +244,7 @@ export default function ConciergePage() {
                       Natural Language Intent
                     </div>
                     <div className="text-[11px] text-slate-400 font-medium">
-                      Ask in plain English: budget, location, sports, or group size.
+                      Ask in plain English: budget, location, sports or group size.
                     </div>
                   </div>
 
@@ -310,7 +268,7 @@ export default function ConciergePage() {
                       Discovery & Guidance
                     </div>
                     <div className="text-[11px] text-slate-400 font-medium">
-                      Switch modes for sports coaching, court etiquette, and advice.
+                      Switch modes for sports coaching, court etiquette and advice.
                     </div>
                   </div>
                 </div>
@@ -318,11 +276,8 @@ export default function ConciergePage() {
             </div>
           </div>
         ) : (
-          /* ── LOGGED IN: Full AI Concierge Experience ────────────── */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left sidebar / Helper panel */}
             <div className="lg:col-span-4 space-y-6">
-              {/* User Session Card */}
               <div className="bg-card border-3 border-black p-5 rounded-sm shadow-[4px_4px_0px_#000]">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-emerald-400 border-2 border-black flex items-center justify-center font-black text-black">
@@ -342,9 +297,7 @@ export default function ConciergePage() {
                 </div>
               </div>
 
-              {/* Chat History Panel (Replaced Popular Lucknow Prompts) */}
               <div className="bg-card border-3 border-black p-5 rounded-sm shadow-[4px_4px_0px_#000]">
-                {/* Header with New Chat Action */}
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <div className="flex items-center gap-2 font-black uppercase text-xs tracking-wider text-yellow-400">
                     <History className="w-4 h-4" />
@@ -361,7 +314,6 @@ export default function ConciergePage() {
                   </button>
                 </div>
 
-                {/* History List */}
                 {sessions.length === 0 ? (
                   <div className="py-7 text-center text-slate-400 text-xs font-semibold bg-card-nested border border-black/40 rounded-sm p-4">
                     <History className="w-7 h-7 mx-auto mb-2 text-slate-500 opacity-60" />
@@ -413,7 +365,6 @@ export default function ConciergePage() {
                       })}
                     </div>
 
-                    {/* Clear All History Button */}
                     <div className="pt-2 border-t border-black/20 flex justify-end">
                       <button
                         onClick={handleClearAllHistory}
@@ -428,7 +379,6 @@ export default function ConciergePage() {
               </div>
             </div>
 
-            {/* Right column: Full interactive AI Concierge */}
             <div className="lg:col-span-8">
               <AIConciergePreview
                 key={activeSessionId}

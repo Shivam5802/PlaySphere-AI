@@ -6,10 +6,11 @@ import {
   Building2, Plus, Calendar, BarChart3, Clock, Loader2, Trash2,
   Pencil, Eye, EyeOff, Ticket, Users, TrendingUp, User as UserIcon,
   AlertCircle, Phone, Mail, MapPin, CreditCard, ShieldCheck,
-  CheckCircle, Sparkles, Wallet, Landmark
+  CheckCircle, Sparkles, Wallet, Landmark, Lock, Unlock, Edit3, KeyRound
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useToast } from '@/contexts/ToastContext';
+import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 import {
   subscribeOwnerVenues,
   subscribeOwnerBookings,
@@ -55,7 +56,6 @@ export default function OwnerDashboardPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  // Ownership request states
   const [ownerRequests, setOwnerRequests] = useState<OwnershipRequest[]>([]);
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationPhone, setVerificationPhone] = useState('');
@@ -70,14 +70,12 @@ export default function OwnerDashboardPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Payout states
   const [ownerUpi, setOwnerUpi] = useState('');
   const [ownerQrBase64, setOwnerQrBase64] = useState('');
   const [payoutSaving, setPayoutSaving] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [bookingSubTab, setBookingSubTab] = useState<'requests' | 'confirmed' | 'tickets'>('requests');
 
-  // Expanded Owner Profile states
   const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
   const [profileAltPhone, setProfileAltPhone] = useState('');
@@ -90,15 +88,16 @@ export default function OwnerDashboardPage() {
   const [profileBankName, setProfileBankName] = useState('');
   const [profileAccountNumber, setProfileAccountNumber] = useState('');
   const [profileIfsc, setProfileIfsc] = useState('');
-  const [profilePhotoBase64, setProfilePhotoBase64] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
-  
-  // Contacts states
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
   const contactPersons = profile?.contactPersons || [];
   const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
   const [isAddingContact, setIsAddingContact] = useState(false);
-  
-  const isProfileIncomplete = !profile?.phoneNumber || !profile?.photoURL;
+
+  // Profile is complete if contact phone is provided
+  const isProfileIncomplete = !(profile?.phoneNumber || profile?.phone || profilePhone)?.trim();
 
   useEffect(() => {
     if (profile) {
@@ -116,31 +115,50 @@ export default function OwnerDashboardPage() {
       setProfileBankName(profile.bankName || '');
       setProfileAccountNumber(profile.accountNumber || '');
       setProfileIfsc(profile.ifscCode || '');
-      setProfilePhotoBase64(profile.photoURL || '');
     }
   }, [profile, user]);
+
+  const handleCancelProfile = () => {
+    if (profile) {
+      setProfileName(profile.displayName || user?.displayName || '');
+      setProfilePhone(profile.phoneNumber || '');
+      setProfileAltPhone(profile.alternatePhone || '');
+      setProfileBusinessName(profile.businessName || '');
+      setProfileGst(profile.gstNumber || '');
+      setProfileAddress(profile.businessAddress || '');
+      setProfileHours(profile.operatingHours || '06:00 AM - 11:00 PM (All 7 Days)');
+      setProfileUpi(profile.upiId || '');
+      setProfileAccountHolder(profile.accountHolderName || profile.displayName || '');
+      setProfileBankName(profile.bankName || '');
+      setProfileAccountNumber(profile.accountNumber || '');
+      setProfileIfsc(profile.ifscCode || '');
+    }
+    setIsEditingProfile(false);
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
     setProfileSaving(true);
     try {
       await updateUserProfile(user.uid, {
-        displayName: profileName,
-        phoneNumber: profilePhone,
-        alternatePhone: profileAltPhone,
-        businessName: profileBusinessName,
-        gstNumber: profileGst,
-        businessAddress: profileAddress,
-        operatingHours: profileHours,
-        upiId: profileUpi,
-        accountHolderName: profileAccountHolder,
-        bankName: profileBankName,
-        accountNumber: profileAccountNumber,
-        ifscCode: profileIfsc,
-        photoURL: profilePhotoBase64
+        displayName: profileName.trim(),
+        phoneNumber: profilePhone.trim(),
+        phone: profilePhone.trim(),
+        alternatePhone: profileAltPhone.trim(),
+        businessName: profileBusinessName.trim(),
+        gstNumber: profileGst.trim(),
+        businessAddress: profileAddress.trim(),
+        operatingHours: profileHours.trim(),
+        upiId: profileUpi.trim(),
+        accountHolderName: profileAccountHolder.trim(),
+        bankName: profileBankName.trim(),
+        accountNumber: profileAccountNumber.trim(),
+        ifscCode: profileIfsc.trim(),
+        ...(profile?.photoURL ? { photoURL: profile.photoURL } : {}),
       });
       showSuccess('👤 Profile & payout details saved!');
       toast.success('Owner profile & payout settings updated successfully!');
+      setIsEditingProfile(false);
     } catch (err) {
       console.error('Error saving profile details:', err);
       toast.error('Unable to save profile details. Please try again.');
@@ -152,7 +170,7 @@ export default function OwnerDashboardPage() {
   const handleSaveContact = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !profile) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const newContact: ContactPerson = {
       id: editingContact ? editingContact.id : crypto.randomUUID(),
@@ -184,7 +202,7 @@ export default function OwnerDashboardPage() {
   const handleDeleteContact = async (id: string) => {
     if (!user || !profile) return;
     if (!confirm('Delete this contact person?')) return;
-    
+
     try {
       const updatedContacts = contactPersons.filter(c => c.id !== id);
       await updateUserProfile(user.uid, { contactPersons: updatedContacts });
@@ -241,7 +259,6 @@ export default function OwnerDashboardPage() {
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  // Subscribe to owner venues in real-time
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -262,21 +279,18 @@ export default function OwnerDashboardPage() {
     };
   }, [user]);
 
-  // Subscribe to bookings for the owner in realtime
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeOwnerBookings(user.uid, setBookings);
     return () => unsub();
   }, [user]);
 
-  // Subscribe to owner's ownership requests in real-time
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeOwnerOwnershipRequests(user.uid, setOwnerRequests);
     return () => unsub();
   }, [user]);
 
-  // Handle URL query parameters for prefilling verification venue code
   useEffect(() => {
     const codeParam = searchParams.get('code');
     const tabParam = searchParams.get('tab');
@@ -301,7 +315,6 @@ export default function OwnerDashboardPage() {
     setVerificationSuccess('');
 
     try {
-      // 1. Verify that the infrastructure record exists for the code
       const infra = await getInfrastructureByVenueCode(verificationCode.trim());
       if (!infra) {
         setVerificationError('Invalid Venue Code. Please verify and try again.');
@@ -309,7 +322,6 @@ export default function OwnerDashboardPage() {
         return;
       }
 
-      // 2. Check if a request already exists for this code (approved or pending)
       const existing = ownerRequests.find((r) => r.venueCode === verificationCode.trim());
       if (existing) {
         if (existing.status === 'approved') {
@@ -323,7 +335,6 @@ export default function OwnerDashboardPage() {
         return;
       }
 
-      // 3. Submit request
       await submitOwnershipRequest({
         venueCode: verificationCode.trim(),
         infrastructureId: infra.id,
@@ -411,17 +422,14 @@ export default function OwnerDashboardPage() {
     }
   };
 
-  // ── Stats ──
   const totalRevenue = bookings.filter((b) => b.paymentStatus === 'paid').reduce((s, b) => s + (b.amount !== undefined ? b.amount : (b.price || 0)), 0);
   const upcomingBookings = bookings.filter((b) => ((b.bookingStatus || b.status) as string) === 'confirmed' || ((b.bookingStatus || b.status) as string) === 'upcoming');
   const activeVenues = venues.filter((v) => v.available);
 
-  // Sub-tabs groupings
   const verificationRequests = bookings.filter((b) => b.paymentStatus === 'verification_pending');
   const confirmedBookings = bookings.filter((b) => ((b.bookingStatus || b.status) as string) === 'confirmed' || ((b.bookingStatus || b.status) as string) === 'upcoming');
   const ticketRecords = bookings.filter((b) => !!(b.ticketId || b.ticketNumber));
 
-  // ── Pending approval guard ─────────────────────────────────────────────────
   if (isOwner && !isApprovedOwner) {
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center px-4">
@@ -433,7 +441,7 @@ export default function OwnerDashboardPage() {
             Pending Approval
           </h1>
           <p className="text-slate-400 mb-6 leading-relaxed">
-            Your Venue Owner account is under review. Our admin team will verify your account within 24 hours. 
+            Your Venue Owner account is under review. Our admin team will verify your account within 24 hours.
             Once approved, you&apos;ll have full access to the Owner Dashboard to list and manage your venues.
           </p>
           <div className="bg-amber-400/10 border-2 border-amber-400/40 rounded-md p-4 text-amber-300 text-sm font-medium mb-6">
@@ -468,11 +476,11 @@ export default function OwnerDashboardPage() {
                 <Building2 className="w-4 h-4 text-black" />
               </div>
               <h1 className="font-display text-3xl font-bold">
-                Owner <span className="gradient-text">Dashboard</span>
+                <span className="gradient-text">Dashboard</span>
               </h1>
             </div>
             <p className="text-slate-400">
-              {profile?.displayName} &bull; {venues.length} venue{venues.length !== 1 ? 's' : ''} listed
+              {profile?.displayName} 
             </p>
           </div>
           {successMsg && (
@@ -488,17 +496,20 @@ export default function OwnerDashboardPage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
               <div>
-                <h3 className="text-rose-300 font-bold text-sm">Action Required: Complete Your Profile</h3>
+                <h3 className="text-rose-300 font-bold text-sm">Action Required: Add Contact Number</h3>
                 <p className="text-rose-400/80 text-xs mt-1">
-                  Please add your mobile number and profile image to ensure players can contact you and to improve trust.
+                  Please add your WhatsApp or mobile number so players and ground managers can reach you.
                 </p>
               </div>
             </div>
             <button
-              onClick={() => setTab('profile')}
-              className="whitespace-nowrap bg-rose-500 hover:bg-rose-400 text-black font-bold text-xs px-4 py-2 rounded border-2 border-black transition-all shadow-[2px_2px_0px_#000] hover:-translate-y-0.5"
+              onClick={() => {
+                setTab('profile');
+                setIsEditingProfile(true);
+              }}
+              className="whitespace-nowrap bg-rose-500 hover:bg-rose-400 text-black font-bold text-xs px-4 py-2 rounded border-2 border-black transition-all shadow-[2px_2px_0px_#000] hover:-translate-y-0.5 cursor-pointer"
             >
-              Complete Profile Now
+              Add Contact Number
             </button>
           </div>
         )}
@@ -521,7 +532,6 @@ export default function OwnerDashboardPage() {
           ))}
         </div>
 
-        {/* ── TAB: OVERVIEW ──────────────────────────────────── */}
         {tab === 'overview' && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -539,7 +549,6 @@ export default function OwnerDashboardPage() {
               ))}
             </div>
 
-            {/* Upcoming bookings summary */}
             <div className="glass rounded-lg p-6 border-2 border-black">
               <h2 className="font-display font-bold text-slate-200 text-lg mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-cyan-400" /> Upcoming Bookings ({upcomingBookings.length})
@@ -564,7 +573,6 @@ export default function OwnerDashboardPage() {
               )}
             </div>
 
-            {/* Payout Settings Card */}
             <div className="glass rounded-lg p-6 border-2 border-black">
               <h2 className="font-display font-bold text-slate-200 text-lg mb-4 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-cyan-400" /> Payout Settings (UPI / QR Code)
@@ -642,7 +650,6 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── TAB: MY VENUES ─────────────────────────────────── */}
         {tab === 'venues' && !editingVenue && (
           <div>
             {venuesLoading ? (
@@ -713,7 +720,6 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── EDIT VENUE (inline) ─────────────────────────────── */}
         {tab === 'venues' && editingVenue && (
           <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000]">
             <h2 className="font-display font-bold text-slate-200 text-xl mb-6">Edit Venue: {editingVenue.name}</h2>
@@ -727,10 +733,8 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── TAB: VERIFY / ADD VENUE ─────────────────────────── */}
         {tab === 'verify' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Private Listing Form */}
             <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000] h-fit">
               <h2 className="font-display font-bold text-slate-200 text-xl mb-1">Create New Venue Listing</h2>
               <p className="text-slate-400 text-xs mb-6">List a new private sports facility to receive bookings.</p>
@@ -742,12 +746,11 @@ export default function OwnerDashboardPage() {
               />
             </div>
 
-            {/* Mapped Infrastructure Verification Form */}
             <div className="space-y-6">
               <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000]">
                 <h2 className="font-display font-bold text-slate-200 text-xl mb-1">Verify Existing Venue Ownership</h2>
                 <p className="text-slate-400 text-xs mb-6">Enter the permanent venue code of a mapped sports infrastructure facility to verify ownership.</p>
-                
+
                 {verificationError && (
                   <div className="bg-rose-950/40 border border-rose-500/30 text-rose-300 px-4 py-2.5 rounded-md text-xs font-bold mb-4">
                     ⚠️ {verificationError}
@@ -835,7 +838,6 @@ export default function OwnerDashboardPage() {
                 </form>
               </div>
 
-              {/* Your Requests List */}
               <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_0px_#000]">
                 <h3 className="font-display font-bold text-slate-200 text-base mb-4">Ownership Verification Requests</h3>
                 {ownerRequests.length === 0 ? (
@@ -870,11 +872,9 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── TAB: BOOKINGS ────────────────────────────────────── */}
         {tab === 'bookings' && (
           <div className="space-y-6">
-            
-            {/* Sub-tabs Selection */}
+
             <div className="flex border-b-2 border-black/30 pb-px gap-4">
               {[
                 { id: 'requests', label: 'Verification Requests', count: verificationRequests.length },
@@ -899,7 +899,6 @@ export default function OwnerDashboardPage() {
               ))}
             </div>
 
-            {/* Sub-tab Content: Verification Requests */}
             {bookingSubTab === 'requests' && (
               <div className="space-y-4">
                 {verificationRequests.length === 0 ? (
@@ -931,10 +930,8 @@ export default function OwnerDashboardPage() {
                           </div>
                         </div>
 
-                        {/* Screenshot proof */}
                         {b.screenshotUrl && (
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={b.screenshotUrl}
                               alt="Payment Proof"
@@ -974,7 +971,6 @@ export default function OwnerDashboardPage() {
               </div>
             )}
 
-            {/* Sub-tab Content: Confirmed Bookings */}
             {bookingSubTab === 'confirmed' && (
               <div className="space-y-4">
                 {confirmedBookings.length === 0 ? (
@@ -1020,7 +1016,6 @@ export default function OwnerDashboardPage() {
               </div>
             )}
 
-            {/* Sub-tab Content: Ticket Records */}
             {bookingSubTab === 'tickets' && (
               <div className="space-y-4">
                 {ticketRecords.length === 0 ? (
@@ -1064,10 +1059,8 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── TAB: ANALYTICS ────────────────────────────────────── */}
         {tab === 'analytics' && (
           <div className="space-y-6">
-            {/* New metrics cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="glass rounded-lg p-5 border-2 border-black shadow-[4px_4px_0px_0px_#000] text-center">
                 <div className="text-3xl mb-2">⭐</div>
@@ -1113,8 +1106,7 @@ export default function OwnerDashboardPage() {
                   const venueBookings = bookings.filter((b) => b.venueId === v.id && (b.bookingStatus || b.status) !== 'cancelled');
                   const revenue = venueBookings.reduce((s, b) => s + (b.amount !== undefined ? b.amount : (b.price || 0)), 0);
                   const pct = venues.length > 0 ? Math.round((venueBookings.length / Math.max(bookings.filter(b => (b.bookingStatus || b.status) !== 'cancelled').length, 1)) * 100) : 0;
-                  
-                  // Calculate Popularity Rank among all owned venues based on confirmed (paid) bookings
+
                   const sortedByConfirmed = [...venues].sort((a, b) => {
                     const countA = bookings.filter(bk => bk.venueId === a.id && bk.paymentStatus === 'paid').length;
                     const countB = bookings.filter(bk => bk.venueId === b.id && bk.paymentStatus === 'paid').length;
@@ -1162,7 +1154,6 @@ export default function OwnerDashboardPage() {
               </div>
             )}
 
-            {/* Revenue by sport */}
             <div className="glass rounded-lg p-6 border-2 border-black">
               <h2 className="font-display font-bold text-slate-200 text-lg mb-4 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-cyan-400" /> Revenue Summary
@@ -1184,40 +1175,22 @@ export default function OwnerDashboardPage() {
           </div>
         )}
 
-        {/* ── TAB: PROFILE ───────────────────────────────────── */}
         {tab === 'profile' && (
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Owner Header / Identity Summary Card */}
             <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
               <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-                  {/* Avatar preview */}
                   <div className="w-20 h-20 rounded-full border-3 border-black overflow-hidden bg-yellow-400 flex items-center justify-center shadow-[4px_4px_0px_#000] flex-shrink-0">
-                    {profilePhotoBase64 ? (
-                      <img
-                        src={profilePhotoBase64}
-                        alt={profileName || 'Owner'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '';
-                        }}
-                      />
-                    ) : (
-                      <span className="font-display font-black text-3xl text-black">
-                        {(profileName || profile?.displayName || 'V')[0]?.toUpperCase()}
-                      </span>
-                    )}
+                    <span className="font-display font-black text-3xl text-black">
+                      {(profileName || profile?.displayName || 'V')[0]?.toUpperCase()}
+                    </span>
                   </div>
 
                   <div>
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                      <h2 className="font-display font-black text-2xl text-slate-100">
+                      <h2 className="font-display font-black text-2xl text-foreground">
                         {profileName || profile?.displayName || 'Sports Venue Owner'}
                       </h2>
-                      <span className="bg-emerald-400 text-black text-[11px] font-mono font-black uppercase px-2 py-0.5 rounded border border-black flex items-center gap-1 shadow-[1px_1px_0px_#000]">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Verified Owner
-                      </span>
                     </div>
 
                     <div className="text-xs text-slate-400 font-mono space-y-0.5">
@@ -1227,194 +1200,261 @@ export default function OwnerDashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-4 text-xs bg-slate-900/80 border-2 border-black p-3 rounded-md shadow-[3px_3px_0px_#000]">
-                  <div className="text-center px-2">
-                    <div className="font-display font-black text-xl text-yellow-400">{venues.length}</div>
-                    <div className="text-[11px] text-slate-400 uppercase font-bold">Venues</div>
+                <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-3">
+                  <div className="flex gap-4 text-xs bg-slate-900/80 border-2 border-black p-3 rounded-md shadow-[3px_3px_0px_#000] justify-center">
+                    <div className="text-center px-2">
+                      <div className="font-display font-black text-xl text-yellow-400">{venues.length}</div>
+                      <div className="text-[11px] text-slate-400 uppercase font-bold">Venues</div>
+                    </div>
+                    <div className="w-px bg-black/50" />
+                    <div className="text-center px-2">
+                      <div className="font-display font-black text-xl text-cyan-400">{bookings.length}</div>
+                      <div className="text-[11px] text-slate-400 uppercase font-bold">Bookings</div>
+                    </div>
                   </div>
-                  <div className="w-px bg-black/50" />
-                  <div className="text-center px-2">
-                    <div className="font-display font-black text-xl text-cyan-400">{bookings.length}</div>
-                    <div className="text-[11px] text-slate-400 uppercase font-bold">Bookings</div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordModal(true)}
+                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-400 font-black text-xs uppercase tracking-wider rounded border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Change Password</span>
+                    </button>
+
+                    {!isEditingProfile && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(true)}
+                        className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs uppercase tracking-wider rounded border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit Profile</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 1: Personal & Business Identity */}
-            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
-              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
-                <Building2 className="w-5 h-5 text-yellow-400" />
-                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
-                  Business & Organization Details
-                </h3>
-              </div>
+            {!isEditingProfile ? (
+              <div className="space-y-6">
+                <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-black/30">
+                    <Building2 className="w-5 h-5 text-yellow-400" />
+                    <h3 className="font-display font-black text-lg text-foreground uppercase tracking-wide">
+                      Business & Organization Details
+                    </h3>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Owner Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Rahul Sharma"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Displayed on player booking invoices & admin directory.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Owner Full Name</span>
+                      <p className="text-sm font-black text-foreground">{profileName || profile?.displayName || 'Not Set'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Business / Brand Entity Name</span>
+                      <p className="text-sm font-black text-yellow-400">{profileBusinessName || 'Not Set'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">GSTIN / Registration Number</span>
+                      <p className="text-sm font-mono font-bold text-slate-200">{profileGst || 'Unregistered / Exempted'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Headquarters / Office Address</span>
+                      <p className="text-sm font-medium text-slate-200">{profileAddress || 'Lucknow, Uttar Pradesh'}</p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Business / Arena Entity Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. PlaySphere Arena LLP"
-                    value={profileBusinessName}
-                    onChange={(e) => setProfileBusinessName(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Registered firm or sports facility brand name.</p>
-                </div>
+                <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-black/30">
+                    <Phone className="w-5 h-5 text-cyan-400" />
+                    <h3 className="font-display font-black text-lg text-foreground uppercase tracking-wide">
+                      Contact & Operational Hours
+                    </h3>
+                  </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    GSTIN / Business Registration (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 09AAAAA0000A1Z5"
-                    value={profileGst}
-                    onChange={(e) => setProfileGst(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Official taxation ID for commercial operations.</p>
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Primary WhatsApp Line</span>
+                      <p className="text-sm font-black text-emerald-400 font-mono flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                        {profilePhone || 'Not Set'}
+                      </p>
+                    </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Office / Headquarters Address
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sector 4, Gomti Nagar, Lucknow"
-                    value={profileAddress}
-                    onChange={(e) => setProfileAddress(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Official physical correspondence address in Lucknow.</p>
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Alternate / Caretaker Number</span>
+                      <p className="text-sm font-mono font-bold text-slate-200">{profileAltPhone || 'None Provided'}</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-900 border-2 border-black rounded-md shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Facility Operating Hours</span>
+                      <p className="text-sm font-bold text-cyan-400">{profileHours || '06:00 AM - 11:00 PM (All 7 Days)'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+                  <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
+                    <Building2 className="w-5 h-5 text-yellow-400" />
+                    <h3 className="font-display font-black text-lg text-foreground uppercase tracking-wide">
+                      Business & Organization Details
+                    </h3>
+                  </div>
 
-            {/* Section 2: Contact & Operations */}
-            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
-              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
-                <Phone className="w-5 h-5 text-cyan-400" />
-                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
-                  Contact & Operational Hours
-                </h3>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Owner Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rahul Sharma"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Displayed on player booking invoices & admin directory.</p>
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Primary Mobile (WhatsApp) *
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +91 9876543210"
-                    value={profilePhone}
-                    onChange={(e) => setProfilePhone(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Players receive this for booking confirmations.</p>
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Business / Arena Entity Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. PlaySphere Arena LLP"
+                        value={profileBusinessName}
+                        onChange={(e) => setProfileBusinessName(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Registered firm or sports facility brand name.</p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        GSTIN / Business Registration (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 09AAAAA0000A1Z5"
+                        value={profileGst}
+                        onChange={(e) => setProfileGst(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Official taxation ID for commercial operations.</p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Office / Headquarters Address
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sector 4, Gomti Nagar, Lucknow"
+                        value={profileAddress}
+                        onChange={(e) => setProfileAddress(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-yellow-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Official physical correspondence address in Lucknow.</p>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Alternate / Emergency Number
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +91 9123456780"
-                    value={profileAltPhone}
-                    onChange={(e) => setProfileAltPhone(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Ground manager or caretaker line.</p>
+                <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
+                  <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
+                    <Phone className="w-5 h-5 text-cyan-400" />
+                    <h3 className="font-display font-black text-lg text-foreground uppercase tracking-wide">
+                      Contact & Operational Hours
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Primary Mobile (WhatsApp) *
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 9876543210"
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Players receive this for booking confirmations.</p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Alternate / Emergency Number
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 9123456780"
+                        value={profileAltPhone}
+                        onChange={(e) => setProfileAltPhone(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Ground manager or caretaker line.</p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
+                        Facility Operating Hours
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 06:00 AM - 11:00 PM (All 7 Days)"
+                        value={profileHours}
+                        onChange={(e) => setProfileHours(e.target.value)}
+                        className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Overall arena operational timing window.</p>
+                    </div>
+                  </div>
                 </div>
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelProfile}
+                    disabled={profileSaving}
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase text-xs rounded border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                    Facility Operating Hours
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 06:00 AM - 11:00 PM (All 7 Days)"
-                    value={profileHours}
-                    onChange={(e) => setProfileHours(e.target.value)}
-                    className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition-all shadow-[2px_2px_0px_#000]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Overall arena operational timing window.</p>
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={profileSaving}
+                    className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-black uppercase text-xs border-2 border-black rounded shadow-[4px_4px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {profileSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                        <span>Saving Settings...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-black" />
+                        <span>Save Owner Profile & Settings</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
-            {/* Section 4: Branding & Display Photo */}
-            <div className="glass rounded-lg p-6 border-2 border-black shadow-[6px_6px_0px_#000]">
-              <div className="flex items-center gap-2 mb-5 pb-3 border-b border-black/30">
-                <Sparkles className="w-5 h-5 text-pink-400" />
-                <h3 className="font-display font-black text-lg text-slate-100 uppercase tracking-wide">
-                  Arena Branding & Photo
-                </h3>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 block">
-                  Profile Photo / Brand Logo URL
-                </label>
-                <input
-                  type="url"
-                  placeholder="e.g. https://images.unsplash.com/photo-example.jpg"
-                  value={profilePhotoBase64}
-                  onChange={(e) => setProfilePhotoBase64(e.target.value)}
-                  className="w-full bg-slate-900 border-2 border-black rounded-md px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-pink-400 transition-all shadow-[2px_2px_0px_#000]"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">Provide a public direct link to your personal photo or arena logo.</p>
-              </div>
-            </div>
-
-            {/* Save Action Footer */}
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-slate-400 font-semibold">
-                All changes sync in real-time across PlaySphere AI.
-              </span>
-
-              <button
-                type="button"
-                onClick={handleSaveProfile}
-                disabled={profileSaving}
-                className="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-black uppercase text-sm border-2 border-black rounded shadow-[4px_4px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {profileSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-black" />
-                    <span>Saving Settings...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-black" />
-                    <span>Save Owner Profile & Payout Settings</span>
-                  </>
-                )}
-              </button>
-            </div>
+            )}
           </div>
         )}
 
-        {/* ── TAB: CONTACTS ──────────────────────────────────── */}
         {tab === 'contacts' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -1577,7 +1617,6 @@ export default function OwnerDashboardPage() {
                         </div>
                       )}
                     </div>
-                    {/* Display assigned venues */}
                     <div className="mt-4 pt-3 border-t border-black/30">
                       <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block mb-2">Assigned Venues:</span>
                       <div className="flex flex-wrap gap-2">
@@ -1599,6 +1638,12 @@ export default function OwnerDashboardPage() {
           </div>
         )}
       </div>
+
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        userEmail={user?.email}
+      />
     </div>
   );
 }

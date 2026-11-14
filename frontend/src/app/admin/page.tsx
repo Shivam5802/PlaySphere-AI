@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Shield, Building2, Calendar, Clock, CheckCircle, XCircle,
   Loader2, Ticket, User, ChevronRight, BarChart3, AlertCircle,
-  Trash2, KeyRound, Eye, EyeOff
+  Trash2, KeyRound, Eye, EyeOff, MessageSquare, Phone, Mail, Search, RefreshCw, ExternalLink
 } from 'lucide-react';
 import {
   updateOwnerApproval,
@@ -18,14 +18,17 @@ import {
   toggleStaffStatus,
   togglePlayerStatus,
   permanentlyDeleteUser,
-  adminChangeUserPassword
+  adminChangeUserPassword,
+  updateContactInquiryStatus,
+  deleteContactInquiry,
+  SavedContactInquiry
 } from '@/backend/firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/contexts/ToastContext';
 import { UserProfile, Venue, Booking, Infrastructure, OwnershipRequest } from '@/shared/types';
 import { formatCurrency, formatDate, getSportEmoji, cn } from '@/shared/helpers/utils';
 import { auth, db } from '@/backend/firebase/config';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 
 const percentageClasses: Record<number, string> = {
   0: 'w-0',
@@ -56,7 +59,7 @@ function getPercentageClass(pct: number) {
   return percentageClasses[rounded] || 'w-0';
 }
 
-type AdminTab = 'overview' | 'approvals' | 'players' | 'owners' | 'venues' | 'bookings' | 'infrastructure';
+type AdminTab = 'overview' | 'approvals' | 'players' | 'owners' | 'venues' | 'bookings' | 'infrastructure' | 'inquiries';
 
 export default function AdminDashboardPage() {
   const toast = useToast();
@@ -66,6 +69,11 @@ export default function AdminDashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [ownershipRequests, setOwnershipRequests] = useState<OwnershipRequest[]>([]);
   const [allInfra, setAllInfra] = useState<Infrastructure[]>([]);
+  const [inquiries, setInquiries] = useState<SavedContactInquiry[]>([]);
+  const [inquirySearch, setInquirySearch] = useState('');
+  const [inquiryFilter, setInquiryFilter] = useState<'all' | 'new' | 'reviewed' | 'resolved'>('all');
+  const [deletingInquiryId, setDeletingInquiryId] = useState<string | null>(null);
+  const [updatingInquiryId, setUpdatingInquiryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
@@ -145,6 +153,19 @@ export default function AdminDashboardPage() {
       }
     });
 
+    const unsubInquiries = onSnapshot(collection(db, 'contact_inquiries'), (snapshot) => {
+      const items = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as SavedContactInquiry[];
+      items.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+      setInquiries(items);
+    });
+
     return () => {
       unsubUsers();
       unsubVenues();
@@ -152,6 +173,7 @@ export default function AdminDashboardPage() {
       unsubClaims();
       unsubInfra();
       unsubDiscovery();
+      unsubInquiries();
     };
   }, []);
 
@@ -381,15 +403,42 @@ export default function AdminDashboardPage() {
     showSuccess('📊 Refreshing analytics metrics...');
   };
 
+  const handleUpdateInquiryStatus = async (id: string, newStatus: 'new' | 'reviewed' | 'resolved') => {
+    try {
+      setUpdatingInquiryId(id);
+      await updateContactInquiryStatus(id, newStatus);
+      toast.success(`Inquiry marked as ${newStatus}`);
+    } catch (err: any) {
+      toast.error('Failed to update status');
+    } finally {
+      setUpdatingInquiryId(null);
+    }
+  };
+
+  const handleDeleteInquiry = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this contact inquiry?')) return;
+    try {
+      setDeletingInquiryId(id);
+      await deleteContactInquiry(id);
+      toast.success('Inquiry deleted successfully');
+    } catch (err: any) {
+      toast.error('Failed to delete inquiry');
+    } finally {
+      setDeletingInquiryId(null);
+    }
+  };
+
   // Derived lists
   const players = users.filter((u) => u.role === 'player');
   const owners = users.filter((u) => u.role === 'owner');
   const pendingOwners = owners.filter((u) => u.approvalStatus === 'pending');
   const approvedOwners = owners.filter((u) => u.approvalStatus === 'approved');
+  const newInquiriesCount = inquiries.filter((i) => i.status === 'new').length;
 
   const TABS: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'approvals', label: 'Approvals', icon: <Clock className="w-4 h-4" />, badge: pendingOwners.length + ownershipRequests.filter((r) => r.status === 'pending').length },
+    { id: 'inquiries', label: 'Inquiries', icon: <MessageSquare className="w-4 h-4 text-yellow-400" />, badge: newInquiriesCount },
     { id: 'players', label: 'Players', icon: <User className="w-4 h-4" /> },
     { id: 'owners', label: 'Owners', icon: <Building2 className="w-4 h-4" /> },
     { id: 'venues', label: 'Venues', icon: <Building2 className="w-4 h-4" /> },
@@ -476,6 +525,7 @@ export default function AdminDashboardPage() {
                 { label: 'Approved Owners', value: approvedOwners.length, color: 'text-emerald-400', icon: '✅' },
                 { label: 'Total Venues', value: venues.length, color: 'text-indigo-400', icon: '📍' },
                 { label: 'Total Bookings', value: bookings.length, color: 'text-rose-400', icon: '📅' },
+                { label: 'Contact Inquiries', value: inquiries.length, color: 'text-yellow-400', icon: '📬' },
               ].map((stat) => (
                 <div key={stat.label} className="bg-slate-900 rounded-lg p-5 border-2 border-black shadow-[4px_4px_0px_0px_#000] text-center">
                   <div className="text-3xl mb-2">{stat.icon}</div>
@@ -1395,6 +1445,207 @@ export default function AdminDashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/*TAB: INQUIRIES (Contact Form Submissions)*/}
+        {tab === 'inquiries' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black uppercase text-primary tracking-wide flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-yellow-400" />
+                  Contact Form Inquiries ({inquiries.length})
+                </h2>
+                <p className="text-xs text-slate-400 font-semibold">
+                  Messages, venue requests and feedback submitted by users through the Landing Page Contact Form.
+                </p>
+              </div>
+
+              {/* Status Filter Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {(['all', 'new', 'reviewed', 'resolved'] as const).map((st) => {
+                  const count = st === 'all' ? inquiries.length : inquiries.filter((i) => i.status === st).length;
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => setInquiryFilter(st)}
+                      className={cn(
+                        'px-3 py-1.5 rounded text-xs font-black uppercase border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0px_#000]',
+                        inquiryFilter === st
+                          ? 'bg-yellow-400 text-black -translate-y-0.5'
+                          : 'bg-card text-slate-400 hover:text-white hover:bg-card-hover'
+                      )}
+                    >
+                      {st} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={inquirySearch}
+                onChange={(e) => setInquirySearch(e.target.value)}
+                placeholder="Search by name, phone, email or message keyword..."
+                className="w-full pl-10 pr-4 py-2.5 bg-card border-2 border-black rounded-md text-sm text-primary placeholder-slate-500 font-semibold focus:outline-none focus:border-yellow-400 shadow-[2px_2px_0px_#000]"
+              />
+            </div>
+
+            {/* Inquiries List */}
+            {(() => {
+              const filtered = inquiries.filter((inq) => {
+                const query = inquirySearch.toLowerCase();
+                const matchesSearch =
+                  (inq.name || '').toLowerCase().includes(query) ||
+                  (inq.phone || '').toLowerCase().includes(query) ||
+                  (inq.email || '').toLowerCase().includes(query) ||
+                  (inq.message || '').toLowerCase().includes(query);
+                const matchesFilter = inquiryFilter === 'all' || (inq.status || 'new') === inquiryFilter;
+                return matchesSearch && matchesFilter;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="bg-card border-2 border-black rounded-lg p-12 text-center shadow-[4px_4px_0px_#000]">
+                    <div className="w-12 h-12 bg-yellow-400/20 border-2 border-black rounded-full flex items-center justify-center mx-auto mb-3 text-yellow-400">
+                      <MessageSquare className="w-6 h-6 stroke-[2.5px]" />
+                    </div>
+                    <h3 className="text-base font-black uppercase text-primary mb-1">
+                      No Inquiries Found
+                    </h3>
+                    <p className="text-xs text-slate-400 font-semibold">
+                      {inquirySearch ? 'No messages match your search filter.' : 'No contact form submissions received yet.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {filtered.map((inq) => {
+                    const formattedDate = inq.createdAt?.seconds
+                      ? new Date(inq.createdAt.seconds * 1000).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Just now';
+
+                    const cleanPhone = (inq.phone || '').replace(/[^0-9]/g, '');
+
+                    return (
+                      <div
+                        key={inq.id}
+                        className="bg-card border-3 border-black rounded-lg p-5 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b-2 border-black/20">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-sm bg-yellow-400 border-2 border-black flex items-center justify-center font-black text-black text-sm shadow-[1px_1px_0px_#000]">
+                              {inq.name ? inq.name.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-primary uppercase">{inq.name}</h3>
+                              <span className="text-[10px] font-mono text-slate-400">{formattedDate}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'px-2.5 py-0.5 rounded text-[10px] font-black uppercase border border-black shadow-[1px_1px_0px_#000]',
+                                inq.status === 'resolved'
+                                  ? 'bg-emerald-400 text-black'
+                                  : inq.status === 'reviewed'
+                                  ? 'bg-cyan-400 text-black'
+                                  : 'bg-yellow-400 text-black'
+                              )}
+                            >
+                              {inq.status || 'new'}
+                            </span>
+
+                            <button
+                              onClick={() => handleDeleteInquiry(inq.id)}
+                              disabled={deletingInquiryId === inq.id}
+                              title="Delete inquiry"
+                              className="p-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 border border-black rounded shadow-[1px_1px_0px_#000] transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Contact details row */}
+                        <div className="flex flex-wrap items-center gap-4 mb-3 text-xs">
+                          {inq.phone ? (
+                            <a
+                              href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 font-bold text-emerald-400 hover:text-emerald-300 hover:underline bg-card-nested px-2.5 py-1 rounded border border-black/40"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>{inq.phone} (WhatsApp)</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-500 text-xs italic">No phone provided</span>
+                          )}
+
+                          {inq.email && !inq.email.includes('not_provided') ? (
+                            <a
+                              href={`mailto:${inq.email}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 font-bold text-cyan-400 hover:text-cyan-300 hover:underline bg-card-nested px-2.5 py-1 rounded border border-black/40"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span>{inq.email}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-500 text-xs italic">No email provided</span>
+                          )}
+                        </div>
+
+                        {/* Message body */}
+                        <div className="bg-card-nested border-2 border-black rounded-md p-3.5 text-xs text-primary font-medium leading-relaxed mb-3">
+                          <p className="whitespace-pre-wrap">{inq.message}</p>
+                        </div>
+
+                        {/* Status update controls */}
+                        <div className="flex items-center justify-between text-xs pt-2">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            Update Status:
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {(['new', 'reviewed', 'resolved'] as const).map((newSt) => (
+                              <button
+                                key={newSt}
+                                onClick={() => handleUpdateInquiryStatus(inq.id, newSt)}
+                                disabled={updatingInquiryId === inq.id || inq.status === newSt}
+                                className={cn(
+                                  'px-2 py-1 rounded text-[10px] font-black uppercase border border-black transition-all cursor-pointer',
+                                  inq.status === newSt
+                                    ? 'bg-slate-700 text-slate-300 opacity-50 cursor-default'
+                                    : 'bg-card hover:bg-card-hover text-slate-300 hover:text-white shadow-[1px_1px_0px_#000]'
+                                )}
+                              >
+                                {newSt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

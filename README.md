@@ -2,7 +2,9 @@
 <img src="https://img.shields.io/badge/PlaySphere-AI%20Sports%20Copilot-06b6d4?style=for-the-badge&labelColor=0a0e1a&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMyAyMGgxOEwxMiAyeiIgZmlsbD0iIzA2YjZkNCIvPjwvc3ZnPg==" alt="PlaySphere Badge" />
 </p>
 
-<h1 align="center">🏟️ PlaySphere</h1>
+<h1 align="center">
+  <img src="frontend/public/favicon.ico" width="38" height="38" alt="PlaySphere Logo" style="vertical-align: middle; display: inline-block;" /> PlaySphere
+</h1>
 <h3 align="center">Agentic AI Sports Infrastructure Discovery & Booking Platform</h3>
 
 <p align="center">
@@ -971,7 +973,7 @@ Distributed under the **MIT License**. See `LICENSE` for details.
 </p>
 
 <p align="center">
-<strong>🏟️ PlaySphere — Where AI Meets the Arena</strong>
+<strong><img src="frontend/public/favicon.ico" width="20" height="20" alt="PlaySphere Logo" style="vertical-align: middle; display: inline-block;" /> PlaySphere — Where AI Meets the Arena</strong>
 </p>
 
 <p align="center">

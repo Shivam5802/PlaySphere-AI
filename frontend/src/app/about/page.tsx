@@ -96,7 +96,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     skills: ['React 19', 'Tailwind CSS', 'Map Integration', 'Responsive Design', 'Neo-Brutalism', 'Component Architecture'],
     github: 'https://github.com/shivam5802',
     linkedin: 'https://linkedin.com/in/shivam5802',
-    email: 'shivam5802@gmail.com',
+    email: 'sjais9827@gmail.com',
   },
   {
     id: 'vikas',
@@ -115,7 +115,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     skills: ['Groq / LLaMA-3.1', 'NLP Intent Parsing', 'Dynamic Pricing Engine', 'Recommendation Agent', 'Demand Prediction', 'Python / ML'],
     github: 'https://github.com/devvikax',
     linkedin: 'https://linkedin.com/in/devvikax',
-    email: 'devvikax@gmail.com',
+    email: 'vikasp.tera@gmail.com',
   },
 ];
 
@@ -281,6 +281,8 @@ export default function AboutPage() {
 
                       <a
                         href={`mailto:${member.email}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 border-2 border-black rounded-sm text-xs font-black text-black shadow-[2px_2px_0px_#000] transition-all cursor-pointer"
                       >
@@ -300,9 +302,6 @@ export default function AboutPage() {
       <div className="max-w-6xl mx-auto bg-card border-3 border-black rounded-xl p-6 sm:p-10 shadow-[6px_6px_0px_#000] mb-16">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b-2 border-black">
           <div>
-            <span className="text-xs font-mono uppercase text-yellow-600 dark:text-yellow-400 tracking-wider font-bold">
-              Autonomous Sports Infrastructure Discovery
-            </span>
             <h2
               className="text-3xl sm:text-4xl font-black uppercase text-primary tracking-wide mt-1"
               style={{ fontFamily: 'var(--font-bebas), var(--font-space), sans-serif' }}
@@ -333,7 +332,7 @@ export default function AboutPage() {
               02
             </div>
             <h3 className="font-bold text-sm text-primary mb-1 uppercase tracking-wide">
-              Real-Time Dark Map
+              Real-Time Map
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
               Google Maps integration showing verified courts, unlisted play-zones, akharas and landmark overlays across Lucknow.
